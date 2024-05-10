@@ -86,14 +86,6 @@ float* generateRgyr() {
     return float_array;
 }
 
-float generateRgyry() {
-    
-}
-
-float generateRgyrz() {
-    
-}
-
 // Temperatura-Humedad-Presión-CO
 
 // Función para generar la temperatura (Temp)
