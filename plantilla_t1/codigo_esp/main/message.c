@@ -20,77 +20,59 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////7
 // Funciones para generar datos
-
 // Acceloremeter_kpi
-
 // Función para generar un número aleatorio en un rango dado
 float randomInRange(float min, float max) {
     return min + ((float)rand() / RAND_MAX) * (max - min);
 }
-
 // Función para generar Ampx
 float generateAmpx() {
     return randomInRange(0.0059, 0.12);
 }
-
 // Función para generar Freqx
 float generateFreqx() {
     return randomInRange(29.0, 31.0);
 }
-
 // Función para generar Ampy
 float generateAmpy() {
     return randomInRange(0.0041, 0.11);
 }
-
 // Función para generar Freqy
 float generateFreqy() {
     return randomInRange(59.0, 61.0);
 }
-
 // Función para generar Ampz
 float generateAmpz() {
     return randomInRange(0.008, 0.15);
 }
-
 // Función para generar Freqz
 float generateFreqz() {
     return randomInRange(89.0, 91.0);
 }
-
 // Función para generar el RMS
 float generateRMS(float Ampx, float Ampy, float Ampz) {
     return sqrtf(powf(Ampx, 2) + powf(Ampy, 2) + powf(Ampz, 2));
 }
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Funciones para generar HEADERS
-
 // Función para generar un ID único del mensaje (2 bytes)
 uint16_t generateMessageID() {
     return (uint16_t)rand(); // Genera un ID aleatorio de 2 bytes
 }
-
 // Función para generar una dirección MAC aleatoria (6 bytes)
 void generateMACAddress(uint8_t *mac_address) {
     for (int i = 0; i < 6; i++) {
         mac_address[i] = rand() % 256; // Genera un byte aleatorio
     }
 }
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Función para empaquetar los datos del encabezado y el cuerpo en un paquete
-
-
-
 //Credenciales de WiFi
 
 #define WIFI_SSID "Negras"
 #define WIFI_PASSWORD "adaclaraflora"
 #define SERVER_IP     "192.168.1.91" // IP del servidor
 #define SERVER_PORT   1234
-
-
 #define PACKET_SIZE 14 // Tamaño del paquete a enviar al servidor
 
 char *pack(int ID_protocol, int Transport_Layer, uint16_t message_id, uint16_t Length) {
@@ -247,15 +229,6 @@ void socket_tcp(){
     // Cerrar el socket
     close(sock);
 }
-
-
-
-
-
-
-
-
-
 
 
 
