@@ -74,45 +74,106 @@ def unpack(packet: bytes) -> list:
     text = struct.unpack('<{}s'.format(largo_text), packet[12:])[0].decode('utf-8')
     return [packet_id, value_float, text]
 
-# def unpack_body():
-#     data = unpack()
-#     datos_data = {
-#         'id_device': ,
-#         'mac': ,
-#         'timestamp': ,
-#         'batt_level': ,
-#         'temp': ,
-#         'press': ,
-#         'hum': ,
-#         'co': ,
-#         'rms': ,
-#         'amp_x': ,
-#         'freq_x': ,
-#         'amp_y': ,
-#         'freq_y': ,
-#         'amp_z': ,
-#         'freq_z': ,
-#         'acc_x': ,
-#         'acc_y': ,
-#         'acc_z': ,
-#         'rgyr_x': ,
-#         'rgyr_y': ,
-#         'rgyr_z': ,
-#     }
+def unpack_header(packet: bytes):
+    packet_id, mac, transport_layer, id_protocol, length = struct.unpack('<H6sBBH', packet)
+    values =  {
+        "packet_id": packet_id,
+        "mac": mac,
+        "transport_layer": transport_layer,
+        "id_protocol": id_protocol,
+        "length": length,
+    }
+    return values
 
-#     logs_data = {
-#         'id_device': ,
-#         'id_protocol': ,
-#         'transport_layer': ,
-#         'timestamp': ,
-#     }
+def parse_body(header: list, packet: bytes) -> dict:
+    id_protocol = header['id_protocol']
+    data = ['batt_level','timestamp','temp','press','hum','co','rms','amp_x','frec_x','amp_y','frec_y','amp_z','frec_z']
+    p4 = ['batt_level','timestamp','temp','press','hum','co','acc_x','acc_y','acc_z','rgyr_x','rgyr_y','rgyr_z']
+    datos_dict = {}
+    logs_dict = {}
+    loss_dict = {}
 
-#     loss_data = {
-#         'delay': ,
-#         'packet_loss': ,
-#     }
+    logs_dict["id_device"]  = header["id_device"]
+    logs_dict["id_protocol"] = header["id_protocol"]
+    logs_dict["transport_layer"] = header["transport_layer"]
+    logs_dict["transport_layer"] = header["transport_layer"]
 
-#     return datos_data, logs_data, loss_data
+    loss_dict["delay"] = 1
+    loss_dict["packet_loss"] = 1
+
+    if id_protocol == 0:
+        parsed_data=struct.unpack('<B', packet)
+        #Estructura del protocolo 0
+        #Batt_level
+        pass
+    elif id_protocol == 1:
+        parsed_data=struct.unpack('<BL', packet)
+        #Estructura del protocolo 1
+        #Batt_level+Timestamp
+        pass
+    elif id_protocol == 2:
+        parsed_data=struct.unpack('<BLBiBi', packet)
+        #Estructura del protocolo 2
+        #Batt_level+Timestamp+Temp+Press+Hum+Co
+    elif id_protocol == 3:
+        parsed_data=struct.unpack('<BLBiBifffffff', packet)
+    else:
+        parsed_data=struct.unpack('<BLBiBi2000f2000f2000f2000f2000f2000f2000f', packet)
+        length = len(parsed_data)
+        for i in range(length):
+            datos_dict[p4[i]] = parsed_data[i]
+        return datos_dict
+
+    length = len(parsed_data)
+    for i in range(length):
+        datos_dict[data[i]] = parsed_data[i]
+    return datos_dict, logs_dict, loss_dict
+
+def unpack_pckt(packet: bytes):
+    data = struct.unpack("", packet)
+    
+    datos_values = unpack('', data)
+    datos_keys = [
+        'id_device',
+        'mac',
+        'timestamp',
+        'batt_level',
+        'temp',
+        'press',
+        'hum',
+        'co',
+        'rms',
+        'amp_x',
+        'freq_x',
+        'amp_y',
+        'freq_y',
+        'amp_z',
+        'freq_z',
+        'acc_x',
+        'acc_y',
+        'acc_z',
+        'rgyr_x',
+        'rgyr_y',
+        'rgyr_z'
+    ]
+
+    logs_values = unpack('', data)
+    logs_keys = [
+        'id_device',
+        'id_protocol',
+        'transport_layer',
+        'timestamp'
+    ]
+
+    loss_keys = [
+        'delay',
+        'packet_loss'
+    ]
+
+
+    datos_data = dict(zip(datos_keys, datos_values))
+
+    return datos_data, logs_data, loss_data
 
 if __name__ == "__main__":
     mensage = pack(1, 3.20, "Hola mundo")

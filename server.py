@@ -1,7 +1,7 @@
 import socket
 import select
 import threading
-from packet_parser import pack, unpack, pack_conf
+from packet_parser import pack, unpack, pack_conf, unpack_header, unpack_pckt
 from modelos import add_data_to_database, get_conf
 
 # For data races
@@ -12,32 +12,42 @@ def handle_client_tcp(client_tcp, addr):
     print(f"Conexión TCP establecida desde {addr}")
     # Receive packet
     while True:
-        header = client_tcp.recv(12).decode()
-        if not header:
-            break
-        # with db_lock:
-        #     add_data_to_database()
+        values_db = parse_packet(header)
+        with db_lock:
+            add_data_to_database(values_db)
     client_tcp.close()
     print(f"Conexión TCP cerrada desde {addr}")
 
 # Función para manejar la conexión UDP con el cliente
-def handle_client_udp(data, addr, udp_socket):
-    print(f"Paquete UDP recibido desde {addr}: {data.decode()}")
-    # with db_lock:
-    #     add_data_to_database(data.decode())
-    udp_socket.sendto("Respuesta UDP".encode(), addr)
+def handle_client_udp(udp_socket):
+    print("Paquete UDP recibido")
+    values_db = parse_packet(header)
+    with db_lock:
+        add_data_to_database(values_db)
 
-def parse_header(client_tcp):
+def parse_packet(client_socket):
+    # Header
     N = 12
-    # Helper function to recv n bytes or return None if EOF is hit
     data = bytearray()
-    while len(data) < N:
-        packet = sock.recv(N - len(data))
-        if not packet:
-            return None
-        data.extend(packet)
-    # data = sock.recv(N)
-    return data
+    if client_socket.type == socket.SOCK_STREAM:
+        data = client_socket.recv(N)
+    elif client_socket.type == socket.SOCK_DGRAM:
+        data, addr = client_socket.recvfrom(N)
+    if not data:
+        break
+
+    header_dict = unpack_header(data)
+    length = header_dict["length"]
+
+    # Body
+    if client_socket.type == socket.SOCK_STREAM:
+        data = client_socket.recv(length - N)
+    elif client_socket.type == socket.SOCK_DGRAM:
+        data = client_socket.recvfrom(length - N)
+    if not data:
+        break
+    values_db = parse_body(header_dict, data)
+    return values_db
 
 def send_conf(client_socket, addr):
     conf_packet = pack_conf(get_conf())
@@ -72,8 +82,7 @@ def main():
                 client_handler_tcp = threading.Thread(target=handle_client_tcp, args=(client_tcp, addr))
                 client_handler_tcp.start()
             elif sock == udp_socket:
-                data, addr = udp_socket.recvfrom(1024)
-                client_handler_udp = threading.Thread(target=handle_client_udp, args=(data, addr, udp_socket))
+                client_handler_udp = threading.Thread(target=handle_client_udp, args=(udp_socket))
                 client_handler_udp.start()
 
 
