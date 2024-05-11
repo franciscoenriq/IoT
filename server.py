@@ -1,9 +1,7 @@
 import socket
 import select
 import threading
-import psycopg2
-import modelos
-from packet_parser import pack, unpack
+from packet_parser import pack, unpack, pack_conf
 from modelos import add_data_to_database, get_conf
 
 # For data races
@@ -12,69 +10,43 @@ db_lock = threading.Lock()
 # Función para manejar la conexión TCP con el cliente
 def handle_client_tcp(client_tcp, addr):
     print(f"Conexión TCP establecida desde {addr}")
-    # Receive header
+    # Receive packet
     while True:
         header = client_tcp.recv(12).decode()
-        size = unpack_header(header)[-1] # body byte size
         if not header:
             break
-    # Receive body
-    while True:
-        body = client_tcp.recv(size).decode()
-        if not body:
-            break
-        parse_packet(body)
-        with db_lock:
-            add_data_to_database()
+        # with db_lock:
+        #     add_data_to_database()
     client_tcp.close()
     print(f"Conexión TCP cerrada desde {addr}")
 
 # Función para manejar la conexión UDP con el cliente
 def handle_client_udp(data, addr, udp_socket):
     print(f"Paquete UDP recibido desde {addr}: {data.decode()}")
-    with db_lock:
-        add_data_to_database(data.decode())
+    # with db_lock:
+    #     add_data_to_database(data.decode())
     udp_socket.sendto("Respuesta UDP".encode(), addr)
 
-def parse_packet(packet):
-    data = unpack()
-    datos_data = {
-        'id_device': ,
-        'mac': ,
-        'timestamp': ,
-        'batt_level': ,
-        'temp': ,
-        'press': ,
-        'hum': ,
-        'co': ,
-        'rms': ,
-        'amp_x': ,
-        'freq_x': ,
-        'amp_y': ,
-        'freq_y': ,
-        'amp_z': ,
-        'freq_z': ,
-        'acc_x': ,
-        'acc_y': ,
-        'acc_z': ,
-        'rgyr_x': ,
-        'rgyr_y': ,
-        'rgyr_z': ,
-    }
+def parse_header(client_tcp):
+    N = 12
+    # Helper function to recv n bytes or return None if EOF is hit
+    data = bytearray()
+    while len(data) < N:
+        packet = sock.recv(N - len(data))
+        if not packet:
+            return None
+        data.extend(packet)
+    # data = sock.recv(N)
+    return data
 
-    logs_data = {
-        'id_device': ,
-        'id_protocol': ,
-        'transport_layer': ,
-        'timestamp': ,
-    }
-
-    loss_data = {
-        'delay': ,
-        'packet_loss': ,
-    }
-
-    return datos_data, logs_data, loss_data
+def send_conf(client_socket, addr):
+    conf_packet = pack_conf(get_conf())
+    if client_socket.type == socket.SOCK_STREAM:
+        client_socket.send(conf_packet)
+    elif client_socket.type == socket.SOCK_DGRAM:
+        client_socket.sendto(conf_packet, addr)
+    else:
+        print("Unknown socket type")
 
 def main():
     host = '0.0.0.0'
