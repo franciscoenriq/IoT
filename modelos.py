@@ -83,41 +83,54 @@ def add_data_to_database(configuracion_data, datos_data, logs_data, loss_data):
     except Exception as error:
         print("Error al agregar datos a la base de datos:", error)
 
+def get_conf():
+    query = Configuracion.select()
+    # Must be only one row
+    for row in query:
+        id_protocol = row.id_protocol
+        transport_layer = row.transport_layer
+    return id_protocol, transport_layer
 
 if __name__ == "__main__":
     try:
-        # Datos de ejemplo para Datos
-        datos_data = {
-            'id_device': 'ABC123',
-            'mac': '123456',
-            'timestamp': datetime.now(),
-            'batt_level': 80,
-            'temp': 25,
-            'press': 1100,
-            'hum': 50,
-            'co': 100.0,
-            # Agrega más datos según sea necesario
-        }
+        # # Datos de ejemplo para Datos
+        # datos_data = {
+        #     'id_device': 'ABC123',
+        #     'mac': '123456',
+        #     'timestamp': datetime.now(),
+        #     'batt_level': 80,
+        #     'temp': 25,
+        #     'press': 1100,
+        #     'hum': 50,
+        #     'co': 100.0,
+        #     # Agrega más datos según sea necesario
+        # }
 
-        # Datos de ejemplo para Logs
-        logs_data = {
-            'id_device': 'XYZ789',
-            'id_protocol': 0,
-            'transport_layer': 'tcp',
-            'timestamp': datetime.now(),
-        }
+        # # Datos de ejemplo para Logs
+        # logs_data = {
+        #     'id_device': 'XYZ789',
+        #     'id_protocol': 0,
+        #     'transport_layer': 'tcp',
+        #     'timestamp': datetime.now(),
+        # }
 
-        # Datos de ejemplo para Loss
-        loss_data = {
-            'delay': '10ms',
-            'packet_loss': 5,
-        }
-        with db.atomic():
-            datos = Datos.create(**datos_data)
-            logs_data['datos_id'] = datos.id
-            loss_data['datos_id'] = datos.id
-            Logs.create(**logs_data)
-            Loss.create(**loss_data)
+        # # Datos de ejemplo para Loss
+        # loss_data = {
+        #     'delay': '10ms',
+        #     'packet_loss': 5,
+        # }
+        # with db.atomic():
+        #     datos = Datos.create(**datos_data)
+        #     logs_data['datos_id'] = datos.id
+        #     loss_data['datos_id'] = datos.id
+        #     Logs.create(**logs_data)
+        #     Loss.create(**loss_data)
+
+        query = Configuracion.select()
+        for row in query:
+            id_protocol = row.id_protocol
+            transport_layer = row.transport_layer
+        print(id_protocol, transport_layer)
 
     except Exception as error:
         print("Error al agregar datos a la base de datos:", error)
