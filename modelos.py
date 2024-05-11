@@ -72,7 +72,7 @@ class Loss(BaseModel):
     delay = CharField()
     packet_loss = IntegerField()
 
-def add_data_to_database(configuracion_data, datos_data, logs_data, loss_data):
+def add_data_to_database(datos_data, logs_data, loss_data):
     try:
         with db.atomic():
             datos = Datos.create(**datos_data)
