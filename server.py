@@ -1,4 +1,5 @@
 import socket
+import select
 import threading
 import psycopg2
 import modelos
@@ -89,13 +90,20 @@ def main():
     print("Servidor esperando conexiones...")
 
     while True:
-        client_tcp, addr = tcp_socket.accept()
-        client_handler_tcp = threading.Thread(target=handle_client_tcp, args=(client_tcp, addr))
-        client_handler_tcp.start()
+        sockets_list = [tcp_socket, udp_socket]
 
-        data, addr = udp_socket.recvfrom(1024)
-        client_handler_udp = threading.Thread(target=handle_client_udp, args=(data, addr, udp_socket))
-        client_handler_udp.start()
+        read_sockets, _, _ = select.select(sockets_list, [], [])
+
+        for sock in read_sockets:
+            if sock == tcp_socket:
+                client_tcp, addr = tcp_socket.accept()
+                client_handler_tcp = threading.Thread(target=handle_client_tcp, args=(client_tcp, addr))
+                client_handler_tcp.start()
+            elif sock == udp_socket:
+                data, addr = udp_socket.recvfrom(1024)
+                client_handler_udp = threading.Thread(target=handle_client_udp, args=(data, addr, udp_socket))
+                client_handler_udp.start()
+
 
 if __name__ == "__main__":
     main()
