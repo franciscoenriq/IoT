@@ -52,7 +52,6 @@ void unpack(char * packet) {
 
 """
 
-
 def pack(packet_id: int, value_float: float, text: str) -> bytes:
     largo_text = len(text)
     """
@@ -67,11 +66,53 @@ def pack(packet_id: int, value_float: float, text: str) -> bytes:
     """
     return struct.pack('<ifi{}s'.format(largo_text), packet_id, value_float, largo_text, text.encode('utf-8'))
 
+def pack_conf(id_protocol, transport_layer):
+    return struct.pack('<i3s', id_protocol, transport_layer.encode('utf-8'))
+
 def unpack(packet: bytes) -> list:
     packet_id,value_float,largo_text = struct.unpack('<ifi', packet[:12])
     text = struct.unpack('<{}s'.format(largo_text), packet[12:])[0].decode('utf-8')
     return [packet_id, value_float, text]
 
+# def unpack_body():
+#     data = unpack()
+#     datos_data = {
+#         'id_device': ,
+#         'mac': ,
+#         'timestamp': ,
+#         'batt_level': ,
+#         'temp': ,
+#         'press': ,
+#         'hum': ,
+#         'co': ,
+#         'rms': ,
+#         'amp_x': ,
+#         'freq_x': ,
+#         'amp_y': ,
+#         'freq_y': ,
+#         'amp_z': ,
+#         'freq_z': ,
+#         'acc_x': ,
+#         'acc_y': ,
+#         'acc_z': ,
+#         'rgyr_x': ,
+#         'rgyr_y': ,
+#         'rgyr_z': ,
+#     }
+
+#     logs_data = {
+#         'id_device': ,
+#         'id_protocol': ,
+#         'transport_layer': ,
+#         'timestamp': ,
+#     }
+
+#     loss_data = {
+#         'delay': ,
+#         'packet_loss': ,
+#     }
+
+#     return datos_data, logs_data, loss_data
 
 if __name__ == "__main__":
     mensage = pack(1, 3.20, "Hola mundo")
