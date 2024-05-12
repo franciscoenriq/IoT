@@ -18,6 +18,15 @@
 #include "esp_netif.h"
 #include "esp_transport.h"
 
+//funciones para generar los valores pedidos 
+// Batt_Sensor
+// Función para generar el nivel de batería
+unsigned char generateBatteryLevel() {
+    return rand() % 100 + 1; // Valor aleatorio entre 1 y 100
+}
+
+
+
 typedef struct {
     uint8_t transport_layer;
     uint8_t id_protocol; 
@@ -143,6 +152,7 @@ void header_message( Client * self, uint8_t* buffer, int body_lenght){
     //por mientras no estamos mandando MAC  
     // el tamaño riginal de size debiese ser size = 12 + body_lenght 
     int size = 6 + body_lenght;
+    self->length = size;
     memcpy(buffer,&(self->id),2);
     memcpy(buffer+2, &(self->transport_layer),1);
     memcpy(buffer+3,&(self->id_protocol),1);
@@ -177,13 +187,15 @@ uint8_t* create_message(Client * self){
     default:
         break;
     }
-    message = (uint8_t*) malloc(12 + body_size * sizeof(uint8_t));
+
+    message = (uint8_t*) malloc(6 + body_size * sizeof(uint8_t)); // lo dejamos en 6 pero en verdad deberian ser 12 
     if (message == NULL) {
             return NULL; // Si malloc falló, devolvemos NULL
         }
-    header_message(self, message,body_size);
+    header_message(self, message,body_size); //acá seteamos el header dentro del mensaje. 
 
-    char batt = 2;
+
+    char batt = generateBatteryLevel();
     memcpy(message + 6 , &batt,1);
 
     return message; 
@@ -225,6 +237,7 @@ void initial_socket_tcp(Client* c){
         close(sock);
         return;
     }
+    printf("enviamos la conf inicial");
     send(sock, "GET_INITIAL_CONFIG", strlen("GET_INITIAL_CONFIG"), 0);
     // Recibir respuesta
     char rx_buffer[128];
@@ -239,7 +252,7 @@ void initial_socket_tcp(Client* c){
     c->id = 0; //partimos con un id igual a 0 , la idea es que a medida que se vayan mandandando paquetes este valor tiene que ir cambiando, esto se tiene que setear en header_message. 
     c->transport_layer = config.transport_layer;
     c->id_protocol = config.id_protocol;
-
+    printf("seteamos la conf inicial\n");
 
     // Cerrar el socket
     close(sock);
@@ -263,8 +276,9 @@ void socket_tcp(uint8_t* message){
         close(sock);
         return;
     }
-    printf("enviamos la info de la cabecera");
-    send(sock, message, 6, 0);
+    printf("enviamos el mensaje");
+
+    send(sock, message, 7, 0);
 
     // Recibir respuesta
     char rx_buffer[128];
@@ -287,20 +301,14 @@ void app_main(void){
     wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
     ESP_LOGI(TAG,"Conectado a WiFi!\n");
     Client client_instance;
-    /*  
-    if (message != NULL) {
-        // Enviar mensaje
-        
-        socket_tcp(message, 6 + 1); // El mensaje tiene 12 bytes de cabecera y 1 byte de datos (batt)
-        free(message); // Liberar la memoria asignada para el mensaje
-    } else {
-        ESP_LOGE(TAG, "Error al crear el mensaje");
-    }*/
+    //mandamos un primer mensaje para poder conocer los valores de la cabecera. 
     initial_socket_tcp(&client_instance);
-    uint8_t* message = create_header_message(&client_instance);
-    printf("hola");
+    
+    //uint8_t* message = create_header_message(&client_instance);
+    printf("hola\n");
+    uint8_t* message = create_message(&client_instance);
+
     socket_tcp(message);
     free(message);
 
 }
-

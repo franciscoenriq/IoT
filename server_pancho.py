@@ -75,7 +75,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             #data = conn.recv(1024)  # Recibe hasta 1024 bytes del cliente
             #handle_client(client_socket)
         
-            data = client_socket.recv(1024)
+            data = client_socket.recv(1024) #recibimos pa cabecera 
             #client_socket.send()
             print(data)
             if data == b"GET_INITIAL_CONFIG":
@@ -86,6 +86,11 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 #print("enviado")
             else:
                 print("entramos aca")
-                unpack_header(data)
+                
+                #headers_values = unpack_header(data)
+                #datos = parse_body(headers_values,data)
+                header, body = unpack(data)
+                print(header)
+                print(body)
+                
 
-            
