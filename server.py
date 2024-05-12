@@ -75,7 +75,7 @@ def handle_packet(client_socket):
         return
     print(data)
     values_db = parse_body(header_dict, data)
-    if udp:
+    if addr:
         return values_db, addr
     return values_db
 
