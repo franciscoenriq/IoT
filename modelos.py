@@ -23,7 +23,7 @@ class Configuracion(BaseModel):
 
     id = AutoField(primary_key=True, constraints=[Check('id = 1')])
     id_protocol = IntegerField(constraints=[Check('id_protocol >= 0 AND id_protocol <= 4')])
-    transport_layer = CharField(max_length=3, constraints=[Check("transport_layer = ANY (ARRAY['udp', 'tcp'])")])
+    transport_layer = IntegerField(constraints=[Check("transport_layer >= 0 AND transport_layer <= 1")])
 
 class Datos(BaseModel):
     class Meta:
@@ -60,7 +60,7 @@ class Logs(BaseModel):
     datos_id = ForeignKeyField(Datos, backref='logs')
     id_device = CharField(max_length=255)
     id_protocol = IntegerField(constraints=[Check('id_protocol >= 0 AND id_protocol <= 4')])
-    transport_layer = CharField(max_length=3, constraints=[Check("transport_layer = ANY (ARRAY['udp', 'tcp'])")])
+    transport_layer = IntegerField(constraints=[Check("transport_layer >= 0 AND transport_layer <= 1")])
     timestamp = DateTimeField()
 
 class Loss(BaseModel):
@@ -90,6 +90,12 @@ def get_conf():
         id_protocol = row.id_protocol
         transport_layer = row.transport_layer
     return id_protocol, transport_layer
+
+def update_conf(id_protocol, transport_layer):
+    query = Configuracion.update(
+        id_protocol = id_protocol,
+        transport_layer = transport_layer).where(Configuracion.id == 1).execute()
+
 
 if __name__ == "__main__":
     try:
