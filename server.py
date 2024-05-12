@@ -1,7 +1,7 @@
 import socket
 import select
 import threading
-from packet_parser import pack, unpack, pack_conf, unpack_header, unpack_pckt
+from packet_parser import pack_conf, unpack_header
 from modelos import add_data_to_database, get_conf
 
 # For data races
@@ -12,7 +12,7 @@ def handle_client_tcp(client_tcp, addr):
     print(f"Conexión TCP establecida desde {addr}")
     # Receive packet
     while True:
-        values_db = parse_packet(header)
+        values_db = parse_packet(client_tcp)
         with db_lock:
             add_data_to_database(values_db)
     client_tcp.close()
@@ -20,12 +20,12 @@ def handle_client_tcp(client_tcp, addr):
 
 # Función para manejar la conexión UDP con el cliente
 def handle_client_udp(udp_socket):
-    print("Paquete UDP recibido")
-    values_db = parse_packet(header)
+    print(f"Paquete UDP recibido desde {addr}")
+    values_db, addr = parse_packet(udp_socket, True)
     with db_lock:
         add_data_to_database(values_db)
 
-def parse_packet(client_socket):
+def parse_packet(client_socket, udp=False):
     # Header
     N = 12
     data = bytearray()
@@ -34,7 +34,7 @@ def parse_packet(client_socket):
     elif client_socket.type == socket.SOCK_DGRAM:
         data, addr = client_socket.recvfrom(N)
     if not data:
-        break
+        return
 
     header_dict = unpack_header(data)
     length = header_dict["length"]
@@ -45,8 +45,10 @@ def parse_packet(client_socket):
     elif client_socket.type == socket.SOCK_DGRAM:
         data = client_socket.recvfrom(length - N)
     if not data:
-        break
+        return
     values_db = parse_body(header_dict, data)
+    if udp:
+        return values_db, addr
     return values_db
 
 def send_conf(client_socket, addr):

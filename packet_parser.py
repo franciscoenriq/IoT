@@ -122,58 +122,13 @@ def parse_body(header: list, packet: bytes) -> dict:
         length = len(parsed_data)
         for i in range(length):
             datos_dict[p4[i]] = parsed_data[i]
-        return datos_dict
+        return datos_dict, logs_dict, loss_dict
 
     length = len(parsed_data)
     for i in range(length):
         datos_dict[data[i]] = parsed_data[i]
     return datos_dict, logs_dict, loss_dict
 
-def unpack_pckt(packet: bytes):
-    data = struct.unpack("", packet)
-    
-    datos_values = unpack('', data)
-    datos_keys = [
-        'id_device',
-        'mac',
-        'timestamp',
-        'batt_level',
-        'temp',
-        'press',
-        'hum',
-        'co',
-        'rms',
-        'amp_x',
-        'freq_x',
-        'amp_y',
-        'freq_y',
-        'amp_z',
-        'freq_z',
-        'acc_x',
-        'acc_y',
-        'acc_z',
-        'rgyr_x',
-        'rgyr_y',
-        'rgyr_z'
-    ]
-
-    logs_values = unpack('', data)
-    logs_keys = [
-        'id_device',
-        'id_protocol',
-        'transport_layer',
-        'timestamp'
-    ]
-
-    loss_keys = [
-        'delay',
-        'packet_loss'
-    ]
-
-
-    datos_data = dict(zip(datos_keys, datos_values))
-
-    return datos_data, logs_data, loss_data
 
 if __name__ == "__main__":
     mensage = pack(1, 3.20, "Hola mundo")
