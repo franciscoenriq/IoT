@@ -51,27 +51,8 @@ void unpack(char * packet) {
 
 """
 
-def pack(packet_id: int, value_float: float, text: str) -> bytes:
-    largo_text = len(text)
-    """
-     '<' significa que se codifica en little-endian
-     'i' significa que el primer dato es un entero de 4 bytes
-     'f' significa que el segundo dato es un float de 4 bytes
-     'i' significa que el tercer dato es un entero de 4 bytes
-     '{}s'.format(largo_text) (ej: 10s para un string de largo 10) significa que el string tiene largo variable,
-
-            Documentacion de struct: https://docs.python.org/3/library/struct.html
-
-    """
-    return struct.pack('<ifi{}s'.format(largo_text), packet_id, value_float, largo_text, text.encode('utf-8'))
-
 def pack_conf(id_protocol, transport_layer):
-    return struct.pack('<i3s', id_protocol, transport_layer.encode('utf-8'))
-
-def unpack(packet: bytes) -> list:
-    packet_id,value_float,largo_text = struct.unpack('<ifi', packet[:12])
-    text = struct.unpack('<{}s'.format(largo_text), packet[12:])[0].decode('utf-8')
-    return [packet_id, value_float, text]
+    return struct.pack('<ii', id_protocol, transport_layer)
 
 def unpack_header(packet: bytes):
     packet_id, mac, transport_layer, id_protocol, length = struct.unpack('<H6sBBH', packet)
