@@ -1,7 +1,7 @@
 import socket
 import select
 import threading
-from packet_parser import pack_conf, unpack_header
+from packet_parser import pack_conf, unpack_header, parse_body
 from modelos import add_data_to_database, get_conf
 
 # For data races
@@ -12,31 +12,58 @@ def handle_client_tcp(client_tcp, addr):
     print(f"Conexión TCP establecida desde {addr}")
     # Receive packet
     while True:
-        values_db = parse_packet(client_tcp)
+        values_db = handle_packet(client_tcp)
+        if not values_db or values_db == "Config sent":
+            break
         with db_lock:
-            add_data_to_database(values_db)
+            add_data_to_database(**values_db)
+        break
     client_tcp.close()
     print(f"Conexión TCP cerrada desde {addr}")
 
 # Función para manejar la conexión UDP con el cliente
 def handle_client_udp(udp_socket):
     print(f"Paquete UDP recibido desde {addr}")
-    values_db, addr = parse_packet(udp_socket, True)
-    with db_lock:
-        add_data_to_database(values_db)
+    while True:
+        values_db, addr = handle_packet(udp_socket)
+        with db_lock:
+            add_data_to_database(**values_db)
+        break
 
-def parse_packet(client_socket, udp=False):
-    # Header
-    N = 12
-    data = bytearray()
+def handle_packet(client_socket):
+    # Check request for config
+    CONF = 4
+    addr = None
+    data = b""
+    # Recibe datos del cliente
     if client_socket.type == socket.SOCK_STREAM:
-        data = client_socket.recv(N)
+        data = client_socket.recv(CONF)
     elif client_socket.type == socket.SOCK_DGRAM:
-        data, addr = client_socket.recvfrom(N)
-    if not data:
+        data, addr = client_socket.recvfrom(CONF)
+
+    # Maneja el mensaje de solicitud inicial
+    if data == b"CONF":
+        # Envía la configuración inicial al cliente
+        if addr:# UDP
+            initial_config = send_conf(client_socket, addr)
+        else:   # TCP
+            initial_config = send_conf(client_socket)
+        return "Config sent"
+
+    # Header
+    N = 12 - CONF
+    if client_socket.type == socket.SOCK_STREAM:
+        header = client_socket.recv(N)
+    elif client_socket.type == socket.SOCK_DGRAM:
+        header, addr = client_socket.recvfrom(N)
+    if not header:
+        print("Not header data")
         return
 
+    data += header
+    print(data)
     header_dict = unpack_header(data)
+    print(header_dict)
     length = header_dict["length"]
 
     # Body
@@ -46,13 +73,16 @@ def parse_packet(client_socket, udp=False):
         data = client_socket.recvfrom(length - N)
     if not data:
         return
+    print(data)
     values_db = parse_body(header_dict, data)
     if udp:
         return values_db, addr
     return values_db
 
-def send_conf(client_socket, addr):
-    conf_packet = pack_conf(get_conf())
+def send_conf(client_socket, addr=None):
+    id_protocol, transport_layer = get_conf()
+    print(id_protocol, transport_layer)
+    conf_packet = pack_conf(id_protocol, transport_layer)
     if client_socket.type == socket.SOCK_STREAM:
         client_socket.send(conf_packet)
     elif client_socket.type == socket.SOCK_DGRAM:
@@ -65,6 +95,7 @@ def main():
     port = 1234
 
     tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     tcp_socket.bind((host, port))
