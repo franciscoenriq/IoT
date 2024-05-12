@@ -1,4 +1,3 @@
-
 import struct # Libreria muy util para codificar y decodificar datos
 
 
@@ -92,6 +91,9 @@ def parse_body(header: list, packet: bytes) -> dict:
     datos_dict = {}
     logs_dict = {}
     loss_dict = {}
+
+    datos_dict["id_device"] = header["id_device"]
+    datos_dict["mac"] = header["mac"]
 
     logs_dict["id_device"]  = header["id_device"]
     logs_dict["id_protocol"] = header["id_protocol"]
