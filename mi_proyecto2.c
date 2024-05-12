@@ -18,6 +18,10 @@
 #include "esp_netif.h"
 #include "esp_transport.h"
 
+typedef struct {
+    uint8_t transport_layer;
+    uint8_t id_protocol; 
+} InitialConfig;
 
 typedef struct {
     uint16_t id;
@@ -185,6 +189,53 @@ uint8_t* create_message(Client * self){
     return message; 
 }
 
+InitialConfig unpack_initial_conf(char *packet) {
+    InitialConfig config;
+
+    memcpy(&(config.transport_layer), packet, 1);
+    memcpy(&(config.id_protocol), packet + 1, 1);
+
+    printf("Transport Layer: %d\n", config.transport_layer);
+    printf("ID Protocol: %d\n", config.id_protocol);
+    return config;
+}
+
+void initial_socket_tcp(Client* c){
+    //  estructura para alamcenar la direccion ip y el puerto del servidor al que se quiere conectar. 
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
+    // Crear un socket
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock < 0) {
+        ESP_LOGE(TAG, "Error al crear el socket");
+        return;
+    }
+    // Conectar al servidor
+    if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
+        ESP_LOGE(TAG, "Error al conectar");
+        close(sock);
+        return;
+    }
+    send(sock, "GET_INITIAL_CONFIG", strlen("GET_INITIAL_CONFIG"), 0);
+    // Recibir respuesta
+    char rx_buffer[128];
+    int rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+    if (rx_len < 0) {
+        ESP_LOGE(TAG, "Error al recibir datos");
+        return;
+    }
+    ESP_LOGI(TAG, "Datos recibidos: %s", rx_buffer);
+
+    InitialConfig config = unpack_initial_conf(rx_buffer);
+    c->id = 0; //partimos con un id igual a 0 , la idea es que a medida que se vayan mandandando paquetes este valor tiene que ir cambiando, esto se tiene que setear en header_message. 
+    c->transport_layer = config.transport_layer;
+    c->id_protocol = config.id_protocol;
+
+    // Cerrar el socket
+    close(sock);
+}
 
 
 void socket_tcp(uint8_t* message, int message_length){
@@ -192,26 +243,23 @@ void socket_tcp(uint8_t* message, int message_length){
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
-
     // Crear un socket
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0) {
         ESP_LOGE(TAG, "Error al crear el socket");
         return;
     }
-
     // Conectar al servidor
     if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
         ESP_LOGE(TAG, "Error al conectar");
         close(sock);
         return;
     }
+    //ahora enviamos el primer mensaje 
+    char *request = "GET_INITIAL_CONFIG";
+    send(sock, request, strlen(request), 0);
 
-    // Enviar mensaje "Hola Mundo"
-    //send(sock, "hola mundo", strlen("hola mundo"), 0);
-    //enviuamos la estrcutura 
-
-    send(sock, message, message_length, 0);
+    //send(sock, message, message_length, 0);
 
     // Recibir respuesta
     char rx_buffer[128];
@@ -235,13 +283,10 @@ void app_main(void){
     ESP_LOGI(TAG,"Conectado a WiFi!\n");
    
     Client client_instance;
-    client_instance.id = 1234;
-    client_instance.transport_layer = 1;
-    client_instance.id_protocol = 0;
-    client_instance.length = 0; 
 
     uint8_t* message = create_message(&client_instance);
 
+    /*  
     if (message != NULL) {
         // Enviar mensaje
         
@@ -249,7 +294,9 @@ void app_main(void){
         free(message); // Liberar la memoria asignada para el mensaje
     } else {
         ESP_LOGE(TAG, "Error al crear el mensaje");
-    }
+    }*/
+    initial_socket_tcp(&client_instance);
 
 
 }
+

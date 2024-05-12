@@ -1,7 +1,7 @@
 import socket
 import select
 import threading
-from packet_parser import pack_conf, unpack_header
+from packet_parser import *
 from modelos import add_data_to_database, get_conf
 
 # For data races
