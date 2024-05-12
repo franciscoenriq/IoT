@@ -188,7 +188,14 @@ uint8_t* create_message(Client * self){
 
     return message; 
 }
-
+uint8_t* create_header_message(Client * self){
+    uint8_t* message; 
+    message = (uint8_t*) malloc(6);
+    header_message(self, message,0);
+    return message;
+}
+//copiamos el mensaje inicial dentro de la estrucutra InitialCONFIG,esta nos dara los valores necesarios para 
+// luego copiarlos en la estucutra CLient 
 InitialConfig unpack_initial_conf(char *packet) {
     InitialConfig config;
 
@@ -233,12 +240,13 @@ void initial_socket_tcp(Client* c){
     c->transport_layer = config.transport_layer;
     c->id_protocol = config.id_protocol;
 
+
     // Cerrar el socket
     close(sock);
 }
 
 
-void socket_tcp(uint8_t* message, int message_length){
+void socket_tcp(uint8_t* message){
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
@@ -255,11 +263,8 @@ void socket_tcp(uint8_t* message, int message_length){
         close(sock);
         return;
     }
-    //ahora enviamos el primer mensaje 
-    char *request = "GET_INITIAL_CONFIG";
-    send(sock, request, strlen(request), 0);
-
-    //send(sock, message, message_length, 0);
+    printf("enviamos la info de la cabecera");
+    send(sock, message, 6, 0);
 
     // Recibir respuesta
     char rx_buffer[128];
@@ -281,11 +286,7 @@ void app_main(void){
     nvs_init();
     wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
     ESP_LOGI(TAG,"Conectado a WiFi!\n");
-   
     Client client_instance;
-
-    uint8_t* message = create_message(&client_instance);
-
     /*  
     if (message != NULL) {
         // Enviar mensaje
@@ -296,7 +297,10 @@ void app_main(void){
         ESP_LOGE(TAG, "Error al crear el mensaje");
     }*/
     initial_socket_tcp(&client_instance);
-
+    uint8_t* message = create_header_message(&client_instance);
+    printf("hola");
+    socket_tcp(message);
+    free(message);
 
 }
 

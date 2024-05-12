@@ -30,7 +30,7 @@ def unpack(packet: bytes) -> tuple:
 
     return header, body
 
-
+'''
 def handle_client(client_socket):
     packet = client_socket.recv(HEADER_LENGTH+BODY_LENGTH)
     if packet:
@@ -41,6 +41,22 @@ def handle_client(client_socket):
         print("Body:", body)
     # Cierra el socket del cliente
     #client_socket.close()
+'''
+def handle_client(client_socket):
+    # Recibe datos del cliente
+    data = client_socket.recv(1024)
+
+    # Maneja el mensaje de solicitud inicial
+    if data == b"GET_INITIAL_CONFIG":
+        # Envía la configuración inicial al cliente
+        initial_config = pack_conf(0,0) # Ejemplo de configuración inicial (transport_layer = 1, id_protocol = 0)
+        client_socket.sendall(initial_config)
+    else:
+        packet = client_socket.recv(HEADER_LENGTH+BODY_LENGTH)
+        unpack_header(packet)
+        # Maneja otro tipo de mensaje (datos)
+        # Haz lo que necesites con los datos recibidos aquí
+        print("Mensaje de datos recibido:", data)
 
 
 #header_struct = struct.Struct("!HBBH") 
@@ -58,56 +74,18 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             print('Conectado por', addr)
             #data = conn.recv(1024)  # Recibe hasta 1024 bytes del cliente
             #handle_client(client_socket)
+        
             data = client_socket.recv(1024)
             #client_socket.send()
             print(data)
             if data == b"GET_INITIAL_CONFIG":
-                paquete_inicial = pack_conf(0,0)
+
+                paquete_inicial = pack_conf(0,0) # la idea es que los valores realmente los saquemos de 
                 print(paquete_inicial)
                 client_socket.send(paquete_inicial)
                 #print("enviado")
+            else:
+                print("entramos aca")
+                unpack_header(data)
 
-
-
-
-
-
-
-
-'''
-HOST = '0.0.0.0'  # Escucha en todas las interfaces disponibles
-PORT = 1234       # Puerto en el que se escucha
-
-header_struct = struct.Struct("!HBBH") 
-
-# Crea un socket para IPv4 y conexión TCP
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.bind((HOST, PORT))
-    s.listen()
-
-    print("El servidor está esperando conexiones en el puerto", PORT)
-
-    while True:
-        conn, addr = s.accept()  # Espera una conexión
-        with conn:
             
-            print('Conectado por', addr)
-            #data = conn.recv(1024)  # Recibe hasta 1024 bytes del cliente
-            expected_bytes = 12 + 1 
-            #data = conn.recv(expected_bytes)
-            header_data = conn.recv(header_struct.size) 
-            if header_data:             
-                # Desempaqueta el encabezado
-                id, transport_layer, id_protocol, length = header_struct.unpack(header_data)
-                print("ID:", id)
-                print("Transport Layer:", transport_layer)
-                print("ID Protocol:", id_protocol)
-                print("Length:", length)
-
-                # Recibe el cuerpo (de longitud 'length')
-                body_data = conn.recv(length)
-                if body_data:
-                    print("Body:", body_data)
-'''
-
-
