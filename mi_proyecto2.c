@@ -307,7 +307,7 @@ void initial_socket_tcp(Client* c){
         return;
     }
     printf("enviamos la conf inicial");
-    send(sock, "CONF", strlen("GET_INITIAL_CONFIG"), 0);
+    send(sock, "CONF", strlen("CONF"), 0);
     // Recibir respuesta
     char rx_buffer[128];
     int rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
