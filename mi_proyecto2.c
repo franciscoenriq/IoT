@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include <math.h>
 
 
 #include "esp_event.h"
@@ -18,14 +21,66 @@
 #include "esp_netif.h"
 #include "esp_transport.h"
 
-//funciones para generar los valores pedidos 
-// Batt_Sensor
-// Función para generar el nivel de batería
+// Función para generar un número aleatorio en un rango dado
+float randomInRange(float min, float max) {
+    return min + ((float)rand() / RAND_MAX) * (max - min);
+}
+
 unsigned char generateBatteryLevel() {
     return rand() % 100 + 1; // Valor aleatorio entre 1 y 100
 }
+// Función para generar Ampx
+float generateAmpx() {
+    return randomInRange(0.0059, 0.12);
+}
 
+// Función para generar Freqx
+float generateFreqx() {
+    return randomInRange(29.0, 31.0);
+}
 
+// Función para generar Ampy
+float generateAmpy() {
+    return randomInRange(0.0041, 0.11);
+}
+
+// Función para generar Freqy
+float generateFreqy() {
+    return randomInRange(59.0, 61.0);
+}
+
+// Función para generar Ampz
+float generateAmpz() {
+    return randomInRange(0.008, 0.15);
+}
+
+// Función para generar Freqz
+float generateFreqz() {
+    return randomInRange(89.0, 91.0);
+}
+
+// Función para generar el RMS
+float generateRMS(float Ampx, float Ampy, float Ampz) {
+    return sqrtf(powf(Ampx, 2) + powf(Ampy, 2) + powf(Ampz, 2));
+}
+int generateTemperature() {
+    return rand() % 26 + 5; // Valor aleatorio entre 5 y 30
+}
+
+// Función para generar la humedad (Hum)
+int generateHumidity() {
+    return rand() % 51 + 30; // Valor aleatorio entre 30 y 80
+}
+
+// Función para generar la presión (Pres)
+int generatePressure() {
+    return rand() % 201 + 1000; // Valor aleatorio entre 1000 y 1200
+}
+
+// Función para generar el nivel de CO (CO)
+float generateCO() {
+    return randomInRange(30.0, 200.0);
+}
 
 typedef struct {
     uint8_t transport_layer;
@@ -198,6 +253,21 @@ uint8_t* create_message(Client * self){
     char batt = generateBatteryLevel();
     memcpy(message + 6 , &batt,1);
 
+    if(id_protocol > 0){
+        unsigned long timeStamp = (unsigned long)time(NULL);
+        memcpy(message+7,&timeStamp,4);
+    }
+    if(id_protocol > 1){
+        int temperature = generateTemperature();
+        int press = generatePressure();
+        int hum = generateHumidity();
+        int co = generateCO();
+        memcpy(message+11,&temperature,1);
+        memcpy(message+12,&press,4);
+        memcpy(message+16,&hum,1);
+        memcpy(message+17,&co,4);
+    }
+
     return message; 
 }
 uint8_t* create_header_message(Client * self){
@@ -210,9 +280,8 @@ uint8_t* create_header_message(Client * self){
 // luego copiarlos en la estucutra CLient 
 InitialConfig unpack_initial_conf(char *packet) {
     InitialConfig config;
-
-    memcpy(&(config.transport_layer), packet, 1);
-    memcpy(&(config.id_protocol), packet + 1, 1);
+    memcpy(&(config.id_protocol), packet, 1);
+    memcpy(&(config.transport_layer), packet + 1, 1);
 
     printf("Transport Layer: %d\n", config.transport_layer);
     printf("ID Protocol: %d\n", config.id_protocol);
@@ -238,7 +307,7 @@ void initial_socket_tcp(Client* c){
         return;
     }
     printf("enviamos la conf inicial");
-    send(sock, "GET_INITIAL_CONFIG", strlen("GET_INITIAL_CONFIG"), 0);
+    send(sock, "CONF", strlen("GET_INITIAL_CONFIG"), 0);
     // Recibir respuesta
     char rx_buffer[128];
     int rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
