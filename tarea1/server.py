@@ -16,7 +16,7 @@ def handle_client_tcp(client_tcp, addr):
         if not values_db or values_db == "Config sent":
             break
         with db_lock:
-            add_data_to_database(**values_db)
+            add_data_to_database(values_db[0], values_db[1], values_db[2])
         break
     client_tcp.close()
     print(f"Conexión TCP cerrada desde {addr}")
@@ -26,8 +26,10 @@ def handle_client_udp(udp_socket):
     print(f"Paquete UDP recibido desde {addr}")
     while True:
         values_db, addr = handle_packet(udp_socket)
+        if not values_db or values_db == "Config sent":
+            break
         with db_lock:
-            add_data_to_database(**values_db)
+            add_data_to_database(values_db[0], values_db[1], values_db[2])
         break
 
 def handle_packet(client_socket):
@@ -51,12 +53,13 @@ def handle_packet(client_socket):
         return "Config sent"
 
     # Header
-    N = 12 - CONF
+    N = 6 - CONF
     if client_socket.type == socket.SOCK_STREAM:
         header = client_socket.recv(N)
     elif client_socket.type == socket.SOCK_DGRAM:
         header, addr = client_socket.recvfrom(N)
     if not header:
+        packet_loss += 1
         print("Not header data")
         return
 
@@ -65,15 +68,17 @@ def handle_packet(client_socket):
     header_dict = unpack_header(data)
     print(header_dict)
     length = header_dict["length"]
+    print("largo header+body", length)
 
+    data = None
     # Body
     if client_socket.type == socket.SOCK_STREAM:
-        data = client_socket.recv(length - N)
+        data = client_socket.recv(length - 6)
     elif client_socket.type == socket.SOCK_DGRAM:
-        data = client_socket.recvfrom(length - N)
+        data = client_socket.recvfrom(length - 6)
     if not data:
         return
-    print(data)
+    print("body: ", data, len(data))
     values_db = parse_body(header_dict, data)
     if addr:
         return values_db, addr

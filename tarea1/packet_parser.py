@@ -1,5 +1,5 @@
 import struct # Libreria muy util para codificar y decodificar datos
-
+from datetime import datetime
 
 """
 
@@ -55,10 +55,10 @@ def pack_conf(id_protocol, transport_layer):
     return struct.pack('<ii', id_protocol, transport_layer)
 
 def unpack_header(packet: bytes):
-    packet_id, mac, transport_layer, id_protocol, length = struct.unpack('<H6sBBH', packet)
+    packet_id, transport_layer, id_protocol, length = struct.unpack('<HBBH', packet) # '<H6sBBH'
     values =  {
         "packet_id": packet_id,
-        "mac": mac,
+        # "mac": mac,
         "transport_layer": transport_layer,
         "id_protocol": id_protocol,
         "length": length,
@@ -73,16 +73,16 @@ def parse_body(header: list, packet: bytes) -> dict:
     logs_dict = {}
     loss_dict = {}
 
-    datos_dict["id_device"] = header["id_device"]
-    datos_dict["mac"] = header["mac"]
+    datos_dict["id_device"] = "123456"#header["mac"] # id_device is commonly mac in Iot
+    datos_dict["mac"] = "123456"#header["mac"]
 
-    logs_dict["id_device"]  = header["id_device"]
+    logs_dict["id_device"]  = "123456"#header["mac"] # id_device is commonly mac in Iot
     logs_dict["id_protocol"] = header["id_protocol"]
     logs_dict["transport_layer"] = header["transport_layer"]
-    logs_dict["transport_layer"] = header["transport_layer"]
+    logs_dict["timestamp"] = datetime.now()
 
-    loss_dict["delay"] = 1
-    loss_dict["packet_loss"] = 1
+    loss_dict["delay"] = 0
+    loss_dict["packet_loss"] = 0
 
     if id_protocol == 0:
         parsed_data=struct.unpack('<B', packet)
@@ -95,21 +95,23 @@ def parse_body(header: list, packet: bytes) -> dict:
         #Batt_level+Timestamp
         pass
     elif id_protocol == 2:
-        parsed_data=struct.unpack('<BLBiBi', packet)
+        parsed_data=struct.unpack('<BLBiBf', packet)
         #Estructura del protocolo 2
         #Batt_level+Timestamp+Temp+Press+Hum+Co
     elif id_protocol == 3:
-        parsed_data=struct.unpack('<BLBiBifffffff', packet)
+        parsed_data=struct.unpack('<BLBiBffffffff', packet)
     else:
         parsed_data=struct.unpack('<BLBiBi2000f2000f2000f2000f2000f2000f2000f', packet)
         length = len(parsed_data)
         for i in range(length):
             datos_dict[p4[i]] = parsed_data[i]
+        datos_dict["timestamp"] = datetime.now()
         return datos_dict, logs_dict, loss_dict
 
     length = len(parsed_data)
     for i in range(length):
         datos_dict[data[i]] = parsed_data[i]
+    datos_dict["timestamp"] = datetime.now()
     return datos_dict, logs_dict, loss_dict
 
 
