@@ -11,6 +11,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdbool.h>
+#include "esp_mac.h"
 
 #include "generateRandom.h"
 
@@ -24,6 +25,7 @@
 #include "sdkconfig.h"
 
 #define GATTS_TAG "GATTS_DEMO"
+#define CONNECTED_BIT BIT0
 
 /// Declare the static function
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
@@ -50,6 +52,10 @@ typedef struct
 
 static InitialConfig config_instace; // Struct to save Config from client
 static uint8_t *message;             // Message to be sent to client
+
+static EventGroupHandle_t ble_event_group;
+
+void task(void *param);
 
 #define GATTS_SERVICE_UUID_TEST_A 0x00FF
 #define GATTS_CHAR_UUID_TEST_A 0xFF01
@@ -661,6 +667,8 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                  param->connect.remote_bda[3], param->connect.remote_bda[4],
                  param->connect.remote_bda[5]);
         gl_profile_tab[PROFILE_A_APP_ID].conn_id = param->connect.conn_id;
+        // Set groupbits for task() function
+        xEventGroupSetBits(ble_event_group, CONNECTED_BIT);
         // start sent the update connection parameters to the peer device.
         esp_ble_gap_update_conn_params(&conn_params);
         break;
@@ -668,6 +676,8 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
     case ESP_GATTS_DISCONNECT_EVT:
         ESP_LOGI(GATTS_TAG, "ESP_GATTS_DISCONNECT_EVT, disconnect reason 0x%x",
                  param->disconnect.reason);
+        // Clear groupbits for task() function
+        xEventGroupClearBits(ble_event_group, CONNECTED_BIT);
         esp_ble_gap_start_advertising(&adv_params);
         break;
     case ESP_GATTS_CONF_EVT:
@@ -999,6 +1009,11 @@ void app_main(void)
                  local_mtu_ret);
     }
 
+    ble_event_group = xEventGroupCreate();
+
+    // Register the GATTS event handler.
+    esp_ble_gatts_register_callback(gatts_event_handler);
+
     xTaskCreate(&task, "main_task", 2048, NULL, 5, NULL);
 
     return;
@@ -1011,17 +1026,17 @@ void request_config()
     esp_ble_gatts_send_indicate(gl_profile_tab[PROFILE_A_APP_ID].gatts_if,
                                 gl_profile_tab[PROFILE_A_APP_ID].conn_id,
                                 gl_profile_tab[PROFILE_A_APP_ID].char_handle,
-                                len, message, true);
+                                len, *message, true);
 }
 
 void add_mac(Header *header_instance)
 {
     // Generate and read the MAC address for the ESP32 (2 = bluetooth)
-    esp_err_t result = esp_read_mac(header_instance->mac, 2);
+    esp_err_t result = esp_read_mac(header_instance->mac, ESP_MAC_BT);
     if (result != ESP_OK)
     {
         printf("Failed to read MAC address\n");
-        return -1;
+        return;
     }
 }
 
@@ -1039,21 +1054,27 @@ void make_header(Header *header_instance)
     {
     case 0:
         header_instance->length = 13;
+        break;
     case 1:
         header_instance->length = 17;
+        break;
     case 2:
         header_instance->length = 27;
+        break;
     case 3:
         header_instance->length = 55;
+        break;
     }
+    printf("header: %d; %d; %d; %d;\n", header_instance->id, header_instance->transport_layer, header_instance->id_protocol, header_instance->length);
 }
 
 void generate_message(Header *header_instance, uint8_t *message)
 {
 #define HEADER_SIZE 12
-    int offset;
+    int offset = 0;
     int protocol = header_instance->id_protocol;
 
+    printf("protocol: %d\n", protocol);
     // Add header to message
     memcpy(message, header_instance, HEADER_SIZE);
     offset += HEADER_SIZE;
@@ -1062,6 +1083,7 @@ void generate_message(Header *header_instance, uint8_t *message)
     unsigned char batt = generateBatteryLevel();
     memcpy(message + offset, &batt, 1);
     offset += 1;
+    printf("batt: %d\n", batt);
 
     // Add protocol 1 to message
     if (protocol > 0)
@@ -1069,6 +1091,7 @@ void generate_message(Header *header_instance, uint8_t *message)
         time_t timeStamp = time(NULL);
         memcpy(message + offset, &timeStamp, 4);
         offset += 4;
+        printf("timestamp: %lld\n", timeStamp);
     }
     // Add protocol 2 to message
     if (protocol > 1)
@@ -1077,14 +1100,18 @@ void generate_message(Header *header_instance, uint8_t *message)
         int press = generatePressure();
         int hum = generateHumidity();
         float co = generateCO();
-        memcpy(&message + offset, &temperature, 1);
+        memcpy(message + offset, &temperature, 1);
         offset += 1;
-        memcpy(&message + offset, &press, 4);
+        printf("temperature: %d\n", temperature);
+        memcpy(message + offset, &press, 4);
         offset += 4;
-        memcpy(&message + offset, &hum, 1);
+        printf("press: %d\n", press);
+        memcpy(message + offset, &hum, 1);
         offset += 1;
-        memcpy(&message + offset, &co, 4);
+        printf("hum: %d\n", hum);
+        memcpy(message + offset, &co, 4);
         offset += 4;
+        printf("co: %f\n", co);
     }
     // Add protocol 3 to message
     if (protocol > 2)
@@ -1097,20 +1124,27 @@ void generate_message(Header *header_instance, uint8_t *message)
         float freqy = generateFreqy();
         float freqz = generateFreqz();
         // Order is important
-        memcpy(&message + offset, &rms, 4);
+        memcpy(message + offset, &rms, 4);
         offset += 4;
-        memcpy(&message + offset, &ampx, 4);
+        printf("ampx: %f\n", ampx);
+        memcpy(message + offset, &ampx, 4);
         offset += 4;
-        memcpy(&message + offset, &freqx, 4);
+        printf("ampy: %f\n", ampy);
+        memcpy(message + offset, &freqx, 4);
         offset += 4;
-        memcpy(&message + offset, &ampy, 4);
+        printf("ampz: %f\n", ampz);
+        memcpy(message + offset, &ampy, 4);
         offset += 4;
-        memcpy(&message + offset, &freqy, 4);
+        printf("rms: %f\n", rms);
+        memcpy(message + offset, &freqy, 4);
         offset += 4;
-        memcpy(&message + offset, &ampz, 4);
+        printf("freqx: %f\n", freqx);
+        memcpy(message + offset, &ampz, 4);
         offset += 4;
-        memcpy(&message + offset, &freqz, 4);
+        printf("freqy: %f\n", freqy);
+        memcpy(message + offset, &freqz, 4);
         offset += 4;
+        printf("freqz: %f\n", freqz);
     }
 }
 
@@ -1119,36 +1153,61 @@ void task(void *param)
     // Generate header
     Header header_instance;
     add_mac(&header_instance);
+
+    // Start as continuos mode
     while (1)
     {
-        request_config();
+        // // Wait for ble connection
+        xEventGroupWaitBits(ble_event_group, CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
+        ESP_LOGI("NOTIFY_TASK", "Connected to a BLE client, starting notifications.");
 
-        //
-        // TODO: Wait until writing from client is done.
-        //
+        while (1)
+        {
+            // Check if still connected
+            if (xEventGroupGetBits(ble_event_group) & CONNECTED_BIT)
+            {
+                request_config();
 
-        make_header(&header_instance);
+                //
+                // vTaskDelay(5000 / portTICK_PERIOD_MS); // Wait 5 seconds
+                // TODO: Wait until writing from client is done.
+                //
 
-        // Generate message
-        message = (uint8_t *)malloc(header_instance.length * sizeof(uint8_t));
-        generate_message(&header_instance, message);
+                make_header(&header_instance);
 
-        esp_ble_gatts_send_indicate(gl_profile_tab[PROFILE_A_APP_ID].gatts_if,
-                                    gl_profile_tab[PROFILE_A_APP_ID].conn_id,
-                                    gl_profile_tab[PROFILE_A_APP_ID].char_handle,
-                                    header_instance.length, message, false);
+                // Generate message
+                message = malloc(header_instance.length * sizeof(uint8_t));
+                generate_message(&header_instance, message);
 
-        // vTaskDelay(5000 / portTICK_PERIOD_MS); // Wait 5 seconds
+                // esp_ble_gatts_send_indicate(gl_profile_tab[PROFILE_A_APP_ID].gatts_if,
+                //                             gl_profile_tab[PROFILE_A_APP_ID].conn_id,
+                //                             gl_profile_tab[PROFILE_A_APP_ID].char_handle,
+                //                             header_instance.length, message, false);
 
-        //
-        // TODO: Wait until client sends read confirmation
-        //
+                //
+                vTaskDelay(5000 / portTICK_PERIOD_MS); // Wait 5 seconds
+                // TODO: Wait until client sends read confirmation
+                // Wait until read process is complete
+                // xEventGroupWaitBits(ble_event_group, READ_COMPLETE_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
+                //
 
-        // Prepare for next message
-        header_instance.id = NULL;
-        header_instance.transport_layer = NULL;
-        header_instance.id_protocol = NULL;
-        header_instance.length = NULL;
-        free(message);
+                // Prepare for next message
+                header_instance.id = NULL;
+                header_instance.transport_layer = NULL;
+                header_instance.id_protocol = NULL;
+                header_instance.length = NULL;
+                free(message);
+
+                // Discontinous mode
+                if (config_instace.transport_layer == 1)
+                {
+                    break;
+                }
+            }
+        }
     }
+    // Discontinuos mode
+    //
+    // TODO: Set Deep Sleep
+    //
 }
