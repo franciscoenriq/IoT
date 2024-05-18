@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include <math.h>
 
 
 #include "esp_event.h"
@@ -18,6 +21,73 @@
 #include "esp_netif.h"
 #include "esp_transport.h"
 
+// Función para generar un número aleatorio en un rango dado
+float randomInRange(float min, float max) {
+    return min + ((float)rand() / RAND_MAX) * (max - min);
+}
+
+uint8_t generateRandomUInt8() {
+    // Genera un número aleatorio en el rango de 0 a 100
+    uint8_t randomUInt8 = (uint8_t)(rand() % 101);
+    return randomUInt8;
+}
+// Función para generar Ampx
+float generateAmpx() {
+    return randomInRange(0.0059, 0.12);
+}
+
+// Función para generar Freqx
+float generateFreqx() {
+    return randomInRange(29.0, 31.0);
+}
+
+// Función para generar Ampy
+float generateAmpy() {
+    return randomInRange(0.0041, 0.11);
+}
+
+// Función para generar Freqy
+float generateFreqy() {
+    return randomInRange(59.0, 61.0);
+}
+
+// Función para generar Ampz
+float generateAmpz() {
+    return randomInRange(0.008, 0.15);
+}
+
+// Función para generar Freqz
+float generateFreqz() {
+    return randomInRange(89.0, 91.0);
+}
+
+// Función para generar el RMS
+float generateRMS(float Ampx, float Ampy, float Ampz) {
+    return sqrtf(powf(Ampx, 2) + powf(Ampy, 2) + powf(Ampz, 2));
+}
+int generateTemperature() {
+    return rand() % 26 + 5; // Valor aleatorio entre 5 y 30
+}
+
+// Función para generar la humedad (Hum)
+int generateHumidity() {
+    return rand() % 51 + 30; // Valor aleatorio entre 30 y 80
+}
+
+// Función para generar la presión (Pres)
+int generatePressure() {
+    return rand() % 201 + 1000; // Valor aleatorio entre 1000 y 1200
+}
+
+// Función para generar el nivel de CO (CO)
+float generateCO() {
+    return randomInRange(30.0, 200.0);
+}
+
+typedef struct {
+    uint8_t transport_layer;
+    uint8_t id_protocol; 
+} InitialConfig;
 
 typedef struct {
     uint16_t id;
@@ -26,9 +96,9 @@ typedef struct {
     uint16_t length;
 } Client;
 //Credenciales de WiFi
-#define WIFI_SSID "VTR-4871545"   //"VTR-4871545" wifipancho" 
-#define WIFI_PASSWORD "ky3shTsxSthp"   //"ky3shTsxSthp" "pituca4061" 
-#define SERVER_IP     "192.168.0.4" // IP del servidor "192.168.0.4" "192.168.43.20"
+#define WIFI_SSID "iot"   //"VTR-4871545" wifipancho" 
+#define WIFI_PASSWORD "12345678"   //"ky3shTsxSthp" "pituca4061" 
+#define SERVER_IP     "192.168.4.1" // IP del servidor "192.168.0.4" "192.168.43.20"
 #define SERVER_PORT   1234
 
 
@@ -139,6 +209,7 @@ void header_message( Client * self, uint8_t* buffer, int body_lenght){
     //por mientras no estamos mandando MAC  
     // el tamaño riginal de size debiese ser size = 12 + body_lenght 
     int size = 6 + body_lenght;
+    self->length = size;
     memcpy(buffer,&(self->id),2);
     memcpy(buffer+2, &(self->transport_layer),1);
     memcpy(buffer+3,&(self->id_protocol),1);
@@ -173,46 +244,77 @@ uint8_t* create_message(Client * self){
     default:
         break;
     }
-    message = (uint8_t*) malloc(12 + body_size * sizeof(uint8_t));
+
+    message = (uint8_t*) malloc(6 + body_size * sizeof(uint8_t)); // lo dejamos en 6 pero en verdad deberian ser 12 
     if (message == NULL) {
             return NULL; // Si malloc falló, devolvemos NULL
         }
-    header_message(self, message,body_size);
+    header_message(self, message,body_size); //acá seteamos el header dentro del mensaje. 
 
-    char batt = 2;
+
+    unsigned char batt = 2;
     memcpy(message + 6 , &batt,1);
+
+    if(id_protocol == 1){
+        time_t timeStamp;
+	time(&timeStamp);
+	printf("time: %ld\n", (long)timeStamp);
+        memcpy(message+7,&timeStamp,4);
+    }
+    if(id_protocol == 2){
+        time_t timeStamp = time(NULL);
+        memcpy(message+7,&timeStamp,4);
+        int temperature = generateTemperature();
+        int press = generatePressure();
+        int hum = generateHumidity();
+        float co = generateCO();
+	printf("CO: %f", co);
+        memcpy(message+11,&temperature,1);
+        memcpy(message+12,&press,4);
+        memcpy(message+16,&hum,1);
+        memcpy(message+17,&co,4);
+    }
 
     return message; 
 }
+uint8_t* create_header_message(Client * self){
+    uint8_t* message; 
+    message = (uint8_t*) malloc(6);
+    header_message(self, message,0);
+    return message;
+}
+//copiamos el mensaje inicial dentro de la estrucutra InitialCONFIG,esta nos dara los valores necesarios para 
+// luego copiarlos en la estucutra CLient 
+InitialConfig unpack_initial_conf(char *packet) {
+    InitialConfig config;
+    memcpy(&(config.id_protocol), packet, 1);
+    memcpy(&(config.transport_layer), packet + 1, 1);
 
+    printf("Transport Layer: %d\n", config.transport_layer);
+    printf("ID Protocol: %d\n", config.id_protocol);
+    return config;
+}
 
-
-void socket_tcp(uint8_t* message, int message_length){
+void initial_socket_tcp(Client* c){
+    //  estructura para alamcenar la direccion ip y el puerto del servidor al que se quiere conectar. 
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
-
     // Crear un socket
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0) {
         ESP_LOGE(TAG, "Error al crear el socket");
         return;
     }
-
     // Conectar al servidor
     if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
         ESP_LOGE(TAG, "Error al conectar");
         close(sock);
         return;
     }
-
-    // Enviar mensaje "Hola Mundo"
-    //send(sock, "hola mundo", strlen("hola mundo"), 0);
-    //enviuamos la estrcutura 
-
-    send(sock, message, message_length, 0);
-
+    printf("enviamos la conf inicial");
+    send(sock, "CONF", strlen("CONF"), 0);
     // Recibir respuesta
     char rx_buffer[128];
     int rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
@@ -221,6 +323,39 @@ void socket_tcp(uint8_t* message, int message_length){
         return;
     }
     ESP_LOGI(TAG, "Datos recibidos: %s", rx_buffer);
+
+    InitialConfig config = unpack_initial_conf(rx_buffer);
+    c->id = 0; //partimos con un id igual a 0 , la idea es que a medida que se vayan mandandando paquetes este valor tiene que ir cambiando, esto se tiene que setear en header_message. 
+    c->transport_layer = config.transport_layer;
+    c->id_protocol = config.id_protocol;
+    printf("seteamos la conf inicial\n");
+
+    // Cerrar el socket
+    close(sock);
+}
+
+
+void socket_tcp(uint8_t* message){
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
+    // Crear un socket
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock < 0) {
+        ESP_LOGE(TAG, "Error al crear el socket");
+        return;
+    }
+    // Conectar al servidor
+    if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
+        ESP_LOGE(TAG, "Error al conectar");
+        close(sock);
+        return;
+    }
+    printf("enviamos el mensaje");
+
+    send(sock, message, 21, 0);
+
     
     // Cerrar el socket
     close(sock);
@@ -233,23 +368,15 @@ void app_main(void){
     nvs_init();
     wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
     ESP_LOGI(TAG,"Conectado a WiFi!\n");
-   
     Client client_instance;
-    client_instance.id = 1234;
-    client_instance.transport_layer = 1;
-    client_instance.id_protocol = 0;
-    client_instance.length = 0; 
-
+    //mandamos un primer mensaje para poder conocer los valores de la cabecera. 
+    initial_socket_tcp(&client_instance);
+    
+    //uint8_t* message = create_header_message(&client_instance);
+    printf("hola\n");
     uint8_t* message = create_message(&client_instance);
 
-    if (message != NULL) {
-        // Enviar mensaje
-        
-        socket_tcp(message, 6 + 1); // El mensaje tiene 12 bytes de cabecera y 1 byte de datos (batt)
-        free(message); // Liberar la memoria asignada para el mensaje
-    } else {
-        ESP_LOGE(TAG, "Error al crear el mensaje");
-    }
-
+    socket_tcp(message);
+    free(message);
 
 }

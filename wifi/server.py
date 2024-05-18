@@ -7,6 +7,7 @@ from modelos import add_data_to_database, get_conf
 # For data races
 db_lock = threading.Lock()
 
+
 # Función para manejar la conexión TCP con el cliente
 def handle_client_tcp(client_tcp, addr):
     print(f"Conexión TCP establecida desde {addr}")
@@ -21,6 +22,7 @@ def handle_client_tcp(client_tcp, addr):
     client_tcp.close()
     print(f"Conexión TCP cerrada desde {addr}")
 
+
 # Función para manejar la conexión UDP con el cliente
 def handle_client_udp(udp_socket):
     print(f"Paquete UDP recibido desde {addr}")
@@ -31,6 +33,7 @@ def handle_client_udp(udp_socket):
         with db_lock:
             add_data_to_database(values_db[0], values_db[1], values_db[2])
         break
+
 
 def handle_packet(client_socket):
     # Check request for config
@@ -46,9 +49,9 @@ def handle_packet(client_socket):
     # Maneja el mensaje de solicitud inicial
     if data == b"CONF":
         # Envía la configuración inicial al cliente
-        if addr:# UDP
+        if addr:  # UDP
             initial_config = send_conf(client_socket, addr)
-        else:   # TCP
+        else:  # TCP
             initial_config = send_conf(client_socket)
         return "Config sent"
 
@@ -84,6 +87,7 @@ def handle_packet(client_socket):
         return values_db, addr
     return values_db
 
+
 def send_conf(client_socket, addr=None):
     id_protocol, transport_layer = get_conf()
     print(id_protocol, transport_layer)
@@ -95,8 +99,9 @@ def send_conf(client_socket, addr=None):
     else:
         print("Unknown socket type")
 
+
 def main():
-    host = '0.0.0.0'
+    host = "0.0.0.0"
     port = 1234
 
     tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -117,10 +122,14 @@ def main():
         for sock in read_sockets:
             if sock == tcp_socket:
                 client_tcp, addr = tcp_socket.accept()
-                client_handler_tcp = threading.Thread(target=handle_client_tcp, args=(client_tcp, addr))
+                client_handler_tcp = threading.Thread(
+                    target=handle_client_tcp, args=(client_tcp, addr)
+                )
                 client_handler_tcp.start()
             elif sock == udp_socket:
-                client_handler_udp = threading.Thread(target=handle_client_udp, args=(udp_socket))
+                client_handler_udp = threading.Thread(
+                    target=handle_client_udp, args=(udp_socket)
+                )
                 client_handler_udp.start()
 
 
