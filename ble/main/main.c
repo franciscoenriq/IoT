@@ -51,7 +51,7 @@ typedef struct
 } Header;
 
 static InitialConfig config_instace; // Struct to save Config from client
-static uint8_t *message;             // Message to be sent to client
+static uint8_t *pMessage;            // Message to be sent to client
 
 static EventGroupHandle_t ble_event_group;
 
@@ -725,8 +725,8 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event,
         esp_gatt_rsp_t rsp;
         memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
         rsp.attr_value.handle = param->read.handle;
-        memcpy(&rsp.attr_value.len, message + 10, 2);               // Set message length in len
-        memcpy(&rsp.attr_value.value, message, rsp.attr_value.len); // Set message in value
+        memcpy(&rsp.attr_value.len, pMessage + 10, 2);               // Set message length in len
+        memcpy(&rsp.attr_value.value, pMessage, rsp.attr_value.len); // Set message in value
         esp_ble_gatts_send_response(gatts_if, param->read.conn_id,
                                     param->read.trans_id, ESP_GATT_OK, &rsp);
         break;
@@ -1176,8 +1176,8 @@ void task(void *param)
                 make_header(&header_instance);
 
                 // Generate message
-                message = malloc(header_instance.length * sizeof(uint8_t));
-                generate_message(&header_instance, message);
+                pMessage = malloc(header_instance.length * sizeof(uint8_t));
+                generate_message(&header_instance, pMessage);
 
                 // esp_ble_gatts_send_indicate(gl_profile_tab[PROFILE_A_APP_ID].gatts_if,
                 //                             gl_profile_tab[PROFILE_A_APP_ID].conn_id,
@@ -1196,18 +1196,18 @@ void task(void *param)
                 header_instance.transport_layer = NULL;
                 header_instance.id_protocol = NULL;
                 header_instance.length = NULL;
-                free(message);
+                free(pMessage);
 
                 // Discontinous mode
                 if (config_instace.transport_layer == 1)
                 {
+                    // Discontinuos mode
+                    //
+                    // TODO: Set Deep Sleep
+                    //
                     break;
                 }
             }
         }
     }
-    // Discontinuos mode
-    //
-    // TODO: Set Deep Sleep
-    //
 }
