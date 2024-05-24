@@ -1065,7 +1065,7 @@ void make_header(Header *header_instance)
         header_instance->length = 55;
         break;
     }
-    printf("header: %d; %d; %d; %d;\n", header_instance->id, header_instance->transport_layer, header_instance->id_protocol, header_instance->length);
+    printf("header: %d; %02x; %02x; %02x; %02x; %02x; %02x; %d; %d; %d;\n", header_instance->id, header_instance->mac[0], header_instance->mac[1], header_instance->mac[2], header_instance->mac[3], header_instance->mac[4], header_instance->mac[5], header_instance->transport_layer, header_instance->id_protocol, header_instance->length);
 }
 
 void generate_message(Header *header_instance, uint8_t *message)
@@ -1075,31 +1075,27 @@ void generate_message(Header *header_instance, uint8_t *message)
     int protocol = header_instance->id_protocol;
 
     printf("protocol: %d\n", protocol);
-    // Add header to message
+    // Adds header to message
     memcpy(message, header_instance, HEADER_SIZE);
     offset += HEADER_SIZE;
 
-    // Add protocol 0 to message
+    // Adds protocol 1 body to message
     unsigned char batt = generateBatteryLevel();
     memcpy(message + offset, &batt, 1);
     offset += 1;
     printf("batt: %d\n", batt);
+    time_t timeStamp = time(NULL);
+    memcpy(message + offset, &timeStamp, 4);
+    offset += 4;
+    printf("timestamp: %lld\n", timeStamp);
 
-    // Add protocol 1 to message
-    if (protocol > 0)
-    {
-        time_t timeStamp = time(NULL);
-        memcpy(message + offset, &timeStamp, 4);
-        offset += 4;
-        printf("timestamp: %lld\n", timeStamp);
-    }
-    // Add protocol 2 to message
+    // Adds protocol 1 body to message
     if (protocol > 1)
     {
         int temperature = generateTemperature();
         int press = generatePressure();
         int hum = generateHumidity();
-        float co = generateCO();
+        int co = generateCO();
         memcpy(message + offset, &temperature, 1);
         offset += 1;
         printf("temperature: %d\n", temperature);
@@ -1111,37 +1107,44 @@ void generate_message(Header *header_instance, uint8_t *message)
         printf("hum: %d\n", hum);
         memcpy(message + offset, &co, 4);
         offset += 4;
-        printf("co: %f\n", co);
+        printf("co: %d\n", co);
     }
-    // Add protocol 3 to message
+    // Adds protocol 2 body to message
     if (protocol > 2)
     {
         float ampx = generateAmpx();
         float ampy = generateAmpy();
         float ampz = generateAmpz();
         float rms = generateRMS(ampx, ampy, ampz);
-        float freqx = generateFreqx();
-        float freqy = generateFreqy();
-        float freqz = generateFreqz();
-        // Order is important
         memcpy(message + offset, &rms, 4);
         offset += 4;
-        printf("ampx: %f\n", ampx);
+        printf("rms: %f\n", rms);
+    }
+    // Adds protocol 3 body to message
+    if (protocol > 3)
+    {
+        float ampx = generateAmpx();
+        float freqx = generateFreqx();
+        float ampy = generateAmpy();
+        float freqy = generateFreqy();
+        float ampz = generateAmpz();
+        float freqz = generateFreqz();
+        // Order is important
         memcpy(message + offset, &ampx, 4);
         offset += 4;
-        printf("ampy: %f\n", ampy);
+        printf("ampx: %f\n", ampx);
         memcpy(message + offset, &freqx, 4);
         offset += 4;
-        printf("ampz: %f\n", ampz);
+        printf("freqx: %f\n", freqx);
         memcpy(message + offset, &ampy, 4);
         offset += 4;
-        printf("rms: %f\n", rms);
+        printf("ampy: %f\n", ampy);
         memcpy(message + offset, &freqy, 4);
         offset += 4;
-        printf("freqx: %f\n", freqx);
+        printf("freqy: %f\n", freqy);
         memcpy(message + offset, &ampz, 4);
         offset += 4;
-        printf("freqy: %f\n", freqy);
+        printf("ampz: %f\n", ampz);
         memcpy(message + offset, &freqz, 4);
         offset += 4;
         printf("freqz: %f\n", freqz);
@@ -1153,11 +1156,12 @@ void task(void *param)
     // Generate header
     Header header_instance;
     add_mac(&header_instance);
+    config_instace.id_protocol = 3;
 
-    // Start as continuos mode
+    // Starts as continuos mode
     while (1)
     {
-        // // Wait for ble connection
+        // Wait for ble connection
         xEventGroupWaitBits(ble_event_group, CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
         ESP_LOGI("NOTIFY_TASK", "Connected to a BLE client, starting notifications.");
 
@@ -1178,6 +1182,7 @@ void task(void *param)
                 // Generate message
                 pMessage = malloc(header_instance.length * sizeof(uint8_t));
                 generate_message(&header_instance, pMessage);
+                printf("Message is: %x\n", *pMessage);
 
                 // esp_ble_gatts_send_indicate(gl_profile_tab[PROFILE_A_APP_ID].gatts_if,
                 //                             gl_profile_tab[PROFILE_A_APP_ID].conn_id,
@@ -1201,11 +1206,20 @@ void task(void *param)
                 // Discontinous mode
                 if (config_instace.transport_layer == 1)
                 {
-                    // Discontinuos mode
-                    //
-                    // TODO: Set Deep Sleep
-                    //
-                    break;
+                    esp_err_t ret = esp_bluedroid_disable();
+                    if (ret)
+                    {
+                        ESP_LOGE(GATTS_TAG, "Failed to disable Bluedroid: %s", esp_err_to_name(ret));
+                    }
+
+                    ret = esp_bt_controller_disable();
+                    if (ret)
+                    {
+                        ESP_LOGE(GATTS_TAG, "Failed to disable Bluetooth controller: %s", esp_err_to_name(ret));
+                    }
+
+                    esp_sleep_enable_timer_wakeup(5000000); // Deep sleep for 5 seconds. 1 min = 60000000
+                    esp_deep_sleep_start();
                 }
             }
         }

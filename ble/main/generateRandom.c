@@ -62,13 +62,13 @@ float generateRMS(float Ampx, float Ampy, float Ampz)
 }
 
 // Función para generar Acc_X, Acc_Y, o Acc_Z
-float *generateAcc()
+int16_t *generateAcc()
 {
     const int size = 2000;
     // Asignar memoria para el array de floats
-    float *float_array = (float *)malloc(size * sizeof(float));
+    int16_t *int16_t_array = (int16_t *)malloc(size * sizeof(int16_t));
 
-    if (float_array == NULL)
+    if (int16_t_array == NULL)
     {
         // Manejo de error si malloc falla
         perror("Error al asignar memoria");
@@ -77,10 +77,10 @@ float *generateAcc()
 
     for (int i = 0; i < size; i++)
     {
-        float_array[i] = randomInRange(-16.0, 16.0);
+        int16_t_array[i] = randomInRange(-8000, 8000);
     }
 
-    return float_array;
+    return int16_t_array;
 }
 
 // Función para generar Rgyr_X, Rgyr_Y, o Rgyr_Z
@@ -124,9 +124,9 @@ int generatePressure()
 }
 
 // Función para generar el nivel de CO (CO)
-float generateCO()
+int generateCO()
 {
-    return randomInRange(30.0, 200.0);
+    return rand() % 171+ 30; // Valor aleatorio entre 30 y 200
 }
 
 // Función para generar el nivel de batería
