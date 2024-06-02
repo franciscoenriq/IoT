@@ -30,7 +30,7 @@ float generateRMS(float Ampx, float Ampy, float Ampz);
 // Acceloremeter_Sensor
 
 // Función para generar Acc_X, Acc_Y, o Acc_Z
-float *generateAcc();
+int16_t *generateAcc();
 
 // Función para generar Rgyr_X, Rgyr_Y, o Rgyr_Z
 float *generateRgyr();
@@ -47,7 +47,7 @@ int generateHumidity();
 int generatePressure();
 
 // Función para generar el nivel de CO (CO)
-float generateCO();
+int generateCO();
 
 // Batt_Sensor
 

@@ -11,9 +11,12 @@
 #include <string.h>
 #include <time.h>
 #include <stdbool.h>
-#include "esp_mac.h"
 
+#include "esp_sleep.h"
+#include "esp_mac.h"
 #include "generateRandom.h"
+#include "config.h"
+#include "nvs.h"
 
 #include "esp_bt_defs.h"
 #include "esp_bt_device.h"
@@ -37,12 +40,6 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event,
 
 typedef struct
 {
-    uint8_t transport_layer;
-    uint8_t id_protocol;
-} InitialConfig;
-
-typedef struct
-{
     uint16_t id;
     uint8_t mac[6];
     uint8_t transport_layer;
@@ -50,12 +47,18 @@ typedef struct
     uint16_t length;
 } Header;
 
-static InitialConfig config_instace; // Struct to save Config from client
-static uint8_t *pMessage;            // Message to be sent to client
+static Config config_instace; // Struct to save Config from client
+static uint8_t *pMessage;     // Message to be sent to client
 
 static EventGroupHandle_t ble_event_group;
 
+void request_config();
+void add_mac(Header *header_instance);
+void make_header(Header *header_instance);
+void generate_message(Header *header_instance, uint8_t *message);
 void task(void *param);
+void save_nvs();
+void load_nvs();
 
 #define GATTS_SERVICE_UUID_TEST_A 0x00FF
 #define GATTS_CHAR_UUID_TEST_A 0xFF01
@@ -407,6 +410,8 @@ void example_exec_write_event_env(prepare_type_env_t *prepare_write_env,
                            prepare_write_env->prepare_len);
         // Copy configuration into static structure
         memcpy(&config_instace, &prepare_write_env->prepare_buf, prepare_write_env->prepare_len);
+        // Save in NVS
+        save_nvs();
     }
     else
     {
@@ -928,6 +933,8 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
     } while (0);
 }
 
+void app_main();
+
 void app_main(void)
 {
     srand(time(NULL));
@@ -1045,9 +1052,9 @@ void make_header(Header *header_instance)
     // id
     header_instance->id = generateId();
 
-    // transport_layer and id_protocol
-    header_instance->transport_layer = config_instace.transport_layer;
-    header_instance->id_protocol = config_instace.id_protocol;
+    // status and id_protocol
+    header_instance->transport_layer = config_instace.status;
+    header_instance->id_protocol = config_instace.ID_Protocol;
 
     // length
     switch (header_instance->id_protocol)
@@ -1151,12 +1158,46 @@ void generate_message(Header *header_instance, uint8_t *message)
     }
 }
 
+// Saves nvs from global struct config_instance
+void save_nvs()
+{
+    Write_NVS(config_instace.status, 1);
+    Write_NVS(config_instace.ID_Protocol, 2);
+    Write_NVS(config_instace.BMI270_Sampling, 3);
+    Write_NVS(config_instace.BMI270_Acc_Sensibility, 4);
+    Write_NVS(config_instace.BMI270_Gyro_Sensibility, 5);
+    Write_NVS(config_instace.BME688_Sampling, 6);
+    Write_NVS(config_instace.Discontinuous_Time, 7);
+    Write_NVS(config_instace.Port_TCP, 8);
+    // Write_NVS(config_instace.Port_UDP, 9);
+    // Write_NVS(config_instace.Host_Ip_Addr, 10);
+    // Write_NVS(config_instace.Ssid, 11);
+    // Write_NVS(config_instace.Pass, 12);
+}
+
+// Loads nvs into global struct config_instance
+void load_nvs()
+{
+    Read_NVS(&config_instace.status, 1);
+    Read_NVS(&config_instace.ID_Protocol, 2);
+    Read_NVS(&config_instace.BMI270_Sampling, 3);
+    Read_NVS(&config_instace.BMI270_Acc_Sensibility, 4);
+    Read_NVS(&config_instace.BMI270_Gyro_Sensibility, 5);
+    Read_NVS(&config_instace.BME688_Sampling, 6);
+    Read_NVS(&config_instace.Discontinuous_Time, 7);
+    Read_NVS(&config_instace.Port_TCP, 8);
+    // Read_NVS(config_instace.Port_UDP, 9);
+    // Read_NVS(config_instace.Host_Ip_Addr, 10);
+    // Read_NVS(config_instace.Ssid, 11);
+    // Read_NVS(config_instace.Pass, 12);
+}
+
 void task(void *param)
 {
     // Generate header
     Header header_instance;
     add_mac(&header_instance);
-    config_instace.id_protocol = 3;
+    config_instace.ID_Protocol = 3;
 
     // Starts as continuos mode
     while (1)
@@ -1170,12 +1211,17 @@ void task(void *param)
             // Check if still connected
             if (xEventGroupGetBits(ble_event_group) & CONNECTED_BIT)
             {
+                // Requests config (saves into NVS in the process)
                 request_config();
 
                 //
                 // vTaskDelay(5000 / portTICK_PERIOD_MS); // Wait 5 seconds
                 // TODO: Wait until writing from client is done.
                 //
+                save_nvs();
+
+                // Load NVS into config_instance
+                load_nvs();
 
                 make_header(&header_instance);
 
@@ -1204,7 +1250,7 @@ void task(void *param)
                 free(pMessage);
 
                 // Discontinous mode
-                if (config_instace.transport_layer == 1)
+                if (config_instace.status == 1)
                 {
                     esp_err_t ret = esp_bluedroid_disable();
                     if (ret)
