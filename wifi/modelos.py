@@ -11,6 +11,9 @@ db_config = {
     'database': 'iot_db'
 }
 db = PostgresqlExtDatabase(**db_config)
+db.connect()
+db.execute_sql("SET search_path TO public;")
+db.close()
 
 # Definición de un modelo
 class BaseModel(Model):
