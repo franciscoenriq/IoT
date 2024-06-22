@@ -15,5 +15,7 @@
 #define RF_CAL 7
 #define SEL_ID 8
 
-int Write_NVS(int32_t data, int key);
-int Read_NVS(int32_t* data,int key);
+int Write_NVS_int(int32_t data, int key);
+int Read_NVS_int(int32_t* data,int key);
+int Write_NVS_string(const char *data, int key);
+int Read_NVS_string(char *data, size_t *length, int key);

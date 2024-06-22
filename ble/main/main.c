@@ -28,7 +28,8 @@
 #include "sdkconfig.h"
 
 #define GATTS_TAG "GATTS_DEMO"
-#define CONNECTED_BIT BIT0
+#define CLIENT_CONNECTED_BIT BIT0
+#define CLIENT_WRITING_READING_BIT BIT1
 
 /// Declare the static function
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
@@ -48,9 +49,10 @@ typedef struct
 } Header;
 
 static Config config_instance; // Struct to save Config from client
-static uint8_t *pMessage;     // Message to be sent to client
+static uint8_t *pMessage;      // Message to be sent to client
 
-static EventGroupHandle_t ble_event_group;
+static EventGroupHandle_t client_connected;
+static EventGroupHandle_t client_writing_reading;
 
 void request_config();
 void add_mac(Header *header_instance);
@@ -332,13 +334,12 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event,
     }
 }
 
-static int i=0;
+static int i = 0;
 void example_write_event_env(esp_gatt_if_t gatts_if,
                              prepare_type_env_t *prepare_write_env,
                              esp_ble_gatts_cb_param_t *param)
 {
     esp_gatt_status_t status = ESP_GATT_OK;
-    printf("Writing event from client\n");
 
     if (param->write.need_rsp)
     {
@@ -412,6 +413,8 @@ void example_write_event_env(esp_gatt_if_t gatts_if,
 
                 return;
             }
+            // Set groupbits for writing proccess
+            xEventGroupSetBits(client_writing_reading, CLIENT_WRITING_READING_BIT);
             // Stops requesting CONFIG when received write value from client
             stop_config = true;
             // Copy configuration into static structure
@@ -442,6 +445,8 @@ void example_write_event_env(esp_gatt_if_t gatts_if,
 
             // Save in NVS
             save_nvs();
+            // Clear groupbits for task() function
+            xEventGroupClearBits(client_writing_reading, CLIENT_WRITING_READING_BIT);
         }
     }
 }
@@ -718,7 +723,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                  param->connect.remote_bda[5]);
         gl_profile_tab[PROFILE_A_APP_ID].conn_id = param->connect.conn_id;
         // Set groupbits for task() function
-        xEventGroupSetBits(ble_event_group, CONNECTED_BIT);
+        xEventGroupSetBits(client_connected, CLIENT_CONNECTED_BIT);
         // start sent the update connection parameters to the peer device.
         esp_ble_gap_update_conn_params(&conn_params);
         break;
@@ -727,7 +732,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
         ESP_LOGI(GATTS_TAG, "ESP_GATTS_DISCONNECT_EVT, disconnect reason 0x%x",
                  param->disconnect.reason);
         // Clear groupbits for task() function
-        xEventGroupClearBits(ble_event_group, CONNECTED_BIT);
+        xEventGroupClearBits(client_connected, CLIENT_CONNECTED_BIT);
         esp_ble_gap_start_advertising(&adv_params);
         break;
     case ESP_GATTS_CONF_EVT:
@@ -1056,7 +1061,8 @@ void app_main(void)
                  local_mtu_ret);
     }
 
-    ble_event_group = xEventGroupCreate();
+    client_connected = xEventGroupCreate();
+    client_writing_reading = xEventGroupCreate();
 
     // Register the GATTS event handler.
     esp_ble_gatts_register_callback(gatts_event_handler);
@@ -1095,6 +1101,7 @@ void add_mac(Header *header_instance)
 
 void make_header(Header *header_instance)
 {
+    srand(time(NULL));
     // id
     header_instance->id = generateId();
 
@@ -1105,9 +1112,6 @@ void make_header(Header *header_instance)
     // length
     switch (header_instance->id_protocol)
     {
-    case 0:
-        header_instance->length = 13;
-        break;
     case 1:
         header_instance->length = 17;
         break;
@@ -1115,6 +1119,9 @@ void make_header(Header *header_instance)
         header_instance->length = 27;
         break;
     case 3:
+        header_instance->length = 31;
+        break;
+    case 4:
         header_instance->length = 55;
         break;
     }
@@ -1137,7 +1144,7 @@ void generate_message(Header *header_instance, uint8_t *message)
     offset += 1;
     memcpy(message + offset, &header_instance->id_protocol, 1);
     offset += 1;
-    memcpy(message + offset, &header_instance->length, 2);
+    memcpy(message + offset, &header_instance->length, sizeof(int16_t));
     offset += 2;
 
     // Reset offset
@@ -1224,35 +1231,38 @@ void generate_message(Header *header_instance, uint8_t *message)
 // Saves nvs from global struct config_instance
 void save_nvs()
 {
-    Write_NVS(config_instance.status, 1);
-    Write_NVS(config_instance.ID_Protocol, 2);
-    Write_NVS(config_instance.BMI270_Sampling, 3);
-    Write_NVS(config_instance.BMI270_Acc_Sensibility, 4);
-    Write_NVS(config_instance.BMI270_Gyro_Sensibility, 5);
-    Write_NVS(config_instance.BME688_Sampling, 6);
-    Write_NVS(config_instance.Discontinuous_Time, 7);
-    Write_NVS(config_instance.Port_TCP, 8);
-    Write_NVS(config_instance.Port_UDP, 9);
-    Write_NVS(config_instance.Host_Ip_Addr, 10);
-    Write_NVS(config_instance.Ssid, 11);
-    Write_NVS(config_instance.Pass, 12);
+    Write_NVS_int(config_instance.status, 1);
+    Write_NVS_int(config_instance.ID_Protocol, 2);
+    Write_NVS_int(config_instance.BMI270_Sampling, 3);
+    Write_NVS_int(config_instance.BMI270_Acc_Sensibility, 4);
+    Write_NVS_int(config_instance.BMI270_Gyro_Sensibility, 5);
+    Write_NVS_int(config_instance.BME688_Sampling, 6);
+    Write_NVS_int(config_instance.Discontinuous_Time, 7);
+    Write_NVS_int(config_instance.Port_TCP, 8);
+    Write_NVS_int(config_instance.Port_UDP, 9);
+    Write_NVS_int(config_instance.Host_Ip_Addr, 10);
+    Write_NVS_string(config_instance.Ssid, 11);
+    Write_NVS_string(config_instance.Pass, 12);
 }
 
 // Loads nvs into global struct config_instance
 void load_nvs()
 {
-    Read_NVS(&config_instance.status, 1);
-    Read_NVS(&config_instance.ID_Protocol, 2);
-    Read_NVS(&config_instance.BMI270_Sampling, 3);
-    Read_NVS(&config_instance.BMI270_Acc_Sensibility, 4);
-    Read_NVS(&config_instance.BMI270_Gyro_Sensibility, 5);
-    Read_NVS(&config_instance.BME688_Sampling, 6);
-    Read_NVS(&config_instance.Discontinuous_Time, 7);
-    Read_NVS(&config_instance.Port_TCP, 8);
-    Read_NVS(&config_instance.Port_UDP, 9);
-    Read_NVS(&config_instance.Host_Ip_Addr, 10);
-    Read_NVS(&config_instance.Ssid, 11);
-    Read_NVS(&config_instance.Pass, 12);
+    Read_NVS_int(&config_instance.status, 1);
+    Read_NVS_int(&config_instance.ID_Protocol, 2);
+    Read_NVS_int(&config_instance.BMI270_Sampling, 3);
+    Read_NVS_int(&config_instance.BMI270_Acc_Sensibility, 4);
+    Read_NVS_int(&config_instance.BMI270_Gyro_Sensibility, 5);
+    Read_NVS_int(&config_instance.BME688_Sampling, 6);
+    Read_NVS_int(&config_instance.Discontinuous_Time, 7);
+    Read_NVS_int(&config_instance.Port_TCP, 8);
+    Read_NVS_int(&config_instance.Port_UDP, 9);
+    Read_NVS_int(&config_instance.Host_Ip_Addr, 10);
+    size_t len;
+    len = strlen(config_instance.Ssid); 
+    Read_NVS_string(config_instance.Ssid, &len, 11);
+    len = strlen(config_instance.Pass); 
+    Read_NVS_string(config_instance.Pass, &len, 12);
 }
 
 void task(void *param)
@@ -1265,14 +1275,14 @@ void task(void *param)
     while (1)
     {
         // Wait for ble connection
-        xEventGroupWaitBits(ble_event_group, CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
+        xEventGroupWaitBits(client_connected, CLIENT_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
         ESP_LOGI("NOTIFY_TASK", "Connected to a BLE client, starting notifications.");
 
         while (1)
         {
             printf("init\n");
             // Check if still connected
-            if (xEventGroupGetBits(ble_event_group) & CONNECTED_BIT)
+            if (xEventGroupGetBits(client_connected) & CLIENT_CONNECTED_BIT)
             {
                 printf("%d;%d;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%s;%s\n", config_instance.status, config_instance.ID_Protocol, config_instance.BMI270_Sampling, config_instance.BMI270_Acc_Sensibility, config_instance.BMI270_Gyro_Sensibility, config_instance.BME688_Sampling, config_instance.Discontinuous_Time, config_instance.Port_TCP, config_instance.Port_UDP, config_instance.Host_Ip_Addr, config_instance.Ssid, config_instance.Pass);
                 // Requests config (saves into NVS in the process)
@@ -1283,13 +1293,19 @@ void task(void *param)
                     vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay for 1 second
                 }
 
+                printf("befor wait\n");
+                while (xEventGroupGetBits(client_writing_reading) & CLIENT_WRITING_READING_BIT)
+                {
+                    vTaskDelay(pdMS_TO_TICKS(100)); // Delay for 100ms and check again
+                }
                 printf("Received and written config\n");
 
                 // Load NVS into config_instance
-                vTaskDelay(3000 / portTICK_PERIOD_MS); // Delay for 5 seconds
                 load_nvs();
-                vTaskDelay(3000 / portTICK_PERIOD_MS); // Delay for 5 seconds
 
+                //
+                // Start of message
+                //
                 make_header(&header_instance);
 
                 // Generate message
@@ -1319,7 +1335,7 @@ void task(void *param)
                 vTaskDelay(5000 / portTICK_PERIOD_MS); // Wait 5 seconds
                 // // TODO: Wait until client sends read confirmation
                 // // Wait until read process is complete
-                // // xEventGroupWaitBits(ble_event_group, READ_COMPLETE_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
+                // // xEventGroupWaitBits(client_connected, READ_COMPLETE_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
                 // //
 
                 // Prepare for next message
