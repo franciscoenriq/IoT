@@ -39,32 +39,44 @@ int Write_NVS(int32_t data,int key)
         switch (key)
         {
             case 1:
-                err = nvs_set_i32(my_handle, "sys_sta", data);
+                err = nvs_set_i32(my_handle, "status", data);
                 break;
             case 2:
-                err = nvs_set_i32(my_handle, "Samp_Freq", data);
+                err = nvs_set_i32(my_handle, "ID_Protocol", data);
                 break;
             case 3:
-                err = nvs_set_i32(my_handle, "T_s", data);
+                err = nvs_set_i32(my_handle, "BMI270_Sampling", data);
                 break;
             case 4:
-                err = nvs_set_i32(my_handle, "Acc_Sen", data);
+                err = nvs_set_i32(my_handle, "BMI270_Acc_Sensibility", data);
                 break;
             case 5:
-                err = nvs_set_i32(my_handle, "Gyro_Sen", data);
+                err = nvs_set_i32(my_handle, "BMI270_Gyro_Sensibility", data);
                 break;
             case 6:
-                err = nvs_set_i32(my_handle, "Acc_Any", data);
+                err = nvs_set_i32(my_handle, "BME688_Sampling", data);
                 break;
             case 7:
-                err = nvs_set_i32(my_handle, "Rf_Cal", data);
+                err = nvs_set_i32(my_handle, "Discontinuous_Time", data);
                 break;
             case 8:
-                err = nvs_set_i32(my_handle, "SEL_ID", data);
+                err = nvs_set_i32(my_handle, "Port_TCP", data);
+                break;
+            case 9:
+                err = nvs_set_i32(my_handle, "Port_UDP", data);
+                break;
+            case 10:
+                err = nvs_set_i32(my_handle, "Host_Ip_Addr", data);
+                break;
+            case 11:
+                err = nvs_set_i32(my_handle, "Ssid", data);
+                break;
+            case 12:
+                err = nvs_set_i32(my_handle, "Pass", data);
                 break;
 
             default:
-                printf("ERROR key");
+                printf("ERROR key\n");
                 break;
         }
         printf((err != ESP_OK) ? "Failed in NVS!\n" : "Done\n");
@@ -100,32 +112,43 @@ int Read_NVS(int32_t* data, int key)
         switch (key)
         {
             case 1:
-                err = nvs_get_i32(my_handle, "sys_sta", data);
+                err = nvs_set_i32(my_handle, "status", data);
                 break;
             case 2:
-                err = nvs_get_i32(my_handle, "Samp_Freq", data);
+                err = nvs_set_i32(my_handle, "ID_Protocol", data);
                 break;
             case 3:
-                err = nvs_get_i32(my_handle, "T_s", data);
+                err = nvs_set_i32(my_handle, "BMI270_Sampling", data);
                 break;
             case 4:
-                err = nvs_get_i32(my_handle, "Acc_Sen", data);
+                err = nvs_set_i32(my_handle, "BMI270_Acc_Sensibility", data);
                 break;
             case 5:
-                err = nvs_get_i32(my_handle, "Gyro_Sen", data);
+                err = nvs_set_i32(my_handle, "BMI270_Gyro_Sensibility", data);
                 break;
             case 6:
-                err = nvs_get_i32(my_handle, "Acc_Any", data);
+                err = nvs_set_i32(my_handle, "BME688_Sampling", data);
                 break;
             case 7:
-                err = nvs_get_i32(my_handle, "Rf_Cal", data);
+                err = nvs_set_i32(my_handle, "Discontinuous_Time", data);
                 break;
             case 8:
-                err = nvs_get_i32(my_handle, "SEL_ID", data);
+                err = nvs_set_i32(my_handle, "Port_TCP", data);
                 break;
-
+            case 9:
+                err = nvs_set_i32(my_handle, "Port_UDP", data);
+                break;
+            case 10:
+                err = nvs_set_i32(my_handle, "Host_Ip_Addr", data);
+                break;
+            case 11:
+                err = nvs_set_i32(my_handle, "Ssid", data);
+                break;
+            case 12:
+                err = nvs_set_i32(my_handle, "Pass", data);
+                break;
             default:
-                printf("ERROR key");
+                printf("ERROR key\n");
                 break;
         }
         switch (err) {
