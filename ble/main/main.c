@@ -1259,9 +1259,9 @@ void load_nvs()
     Read_NVS_int(&config_instance.Port_UDP, 9);
     Read_NVS_int(&config_instance.Host_Ip_Addr, 10);
     size_t len;
-    len = strlen(config_instance.Ssid); 
+    len = strlen(config_instance.Ssid);
     Read_NVS_string(config_instance.Ssid, &len, 11);
-    len = strlen(config_instance.Pass); 
+    len = strlen(config_instance.Pass);
     Read_NVS_string(config_instance.Pass, &len, 12);
 }
 
@@ -1270,6 +1270,7 @@ void task(void *param)
     // Generate header
     Header header_instance;
     add_mac(&header_instance);
+    config_instance.status = 0; // INIT
 
     // Starts as continuous mode
     while (1)
@@ -1278,92 +1279,93 @@ void task(void *param)
         xEventGroupWaitBits(client_connected, CLIENT_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
         ESP_LOGI("NOTIFY_TASK", "Connected to a BLE client, starting notifications.");
 
-        while (1)
+        while (xEventGroupGetBits(client_connected) & CLIENT_CONNECTED_BIT)
         {
             printf("init\n");
             // Check if still connected
-            if (xEventGroupGetBits(client_connected) & CLIENT_CONNECTED_BIT)
+            printf("%d;%d;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%s;%s\n", config_instance.status, config_instance.ID_Protocol, config_instance.BMI270_Sampling, config_instance.BMI270_Acc_Sensibility, config_instance.BMI270_Gyro_Sensibility, config_instance.BME688_Sampling, config_instance.Discontinuous_Time, config_instance.Port_TCP, config_instance.Port_UDP, config_instance.Host_Ip_Addr, config_instance.Ssid, config_instance.Pass);
+
+            // STATUS == 0
+            if (config_instance.status == 0)
             {
-                printf("%d;%d;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%s;%s\n", config_instance.status, config_instance.ID_Protocol, config_instance.BMI270_Sampling, config_instance.BMI270_Acc_Sensibility, config_instance.BMI270_Gyro_Sensibility, config_instance.BME688_Sampling, config_instance.Discontinuous_Time, config_instance.Port_TCP, config_instance.Port_UDP, config_instance.Host_Ip_Addr, config_instance.Ssid, config_instance.Pass);
                 // Requests config (saves into NVS in the process)
-                while (!stop_config)
+                while (!stop_config && xEventGroupGetBits(client_connected) & CLIENT_CONNECTED_BIT)
                 {
                     request_config();
                     printf("Config requested\n");
                     vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay for 1 second
                 }
+            }
 
-                printf("befor wait\n");
-                while (xEventGroupGetBits(client_writing_reading) & CLIENT_WRITING_READING_BIT)
+            while (xEventGroupGetBits(client_writing_reading) & CLIENT_WRITING_READING_BIT)
+            {
+                vTaskDelay(pdMS_TO_TICKS(100)); // Delay for 100ms and check again
+            }
+            printf("Received and written config\n");
+
+            // Load NVS into config_instance
+            load_nvs();
+
+            //
+            // Start of message
+            //
+            make_header(&header_instance);
+
+            // Generate message
+            pMessage = malloc(header_instance.length * sizeof(uint8_t));
+            generate_message(&header_instance, pMessage);
+            printf("Message is:\n");
+            for (int i = 0; i < header_instance.length; i++)
+            {
+                printf("%02X", pMessage[i]); // Print each byte of the message in hex
+            }
+            printf("\n");
+
+            // Message ready
+            esp_err_t err = esp_ble_gatts_send_indicate(gl_profile_tab[PROFILE_A_APP_ID].gatts_if,
+                                                        gl_profile_tab[PROFILE_A_APP_ID].conn_id,
+                                                        gl_profile_tab[PROFILE_A_APP_ID].char_handle,
+                                                        header_instance.length, (uint8_t *)pMessage, false);
+
+            if (err != ESP_OK)
+            {
+                ESP_LOGE(GATTS_TAG, "Failed to send indicate: %s", esp_err_to_name(err));
+            }
+
+            printf("%d;%d;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%s;%s\n", config_instance.status, config_instance.ID_Protocol, config_instance.BMI270_Sampling, config_instance.BMI270_Acc_Sensibility, config_instance.BMI270_Gyro_Sensibility, config_instance.BME688_Sampling, config_instance.Discontinuous_Time, config_instance.Port_TCP, config_instance.Port_UDP, config_instance.Host_Ip_Addr, config_instance.Ssid, config_instance.Pass);
+            printf("status: %d\n", config_instance.status);
+
+            vTaskDelay(5000 / portTICK_PERIOD_MS); // Wait 5 seconds
+            // // TODO: Wait until client sends read confirmation
+            // // Wait until read process is complete
+            // // xEventGroupWaitBits(client_connected, READ_COMPLETE_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
+            // //
+
+            // Prepare for next message
+            header_instance.id = NULL;
+            header_instance.transport_layer = NULL;
+            header_instance.id_protocol = NULL;
+            header_instance.length = NULL;
+            free(pMessage);
+            stop_config = false;
+
+            // STATUS == 0 -> Discontinuous mode
+            if (config_instance.status == 31)
+            {
+                esp_err_t ret = esp_bluedroid_disable();
+                if (ret)
                 {
-                    vTaskDelay(pdMS_TO_TICKS(100)); // Delay for 100ms and check again
+                    ESP_LOGE(GATTS_TAG, "Failed to disable Bluedroid: %s", esp_err_to_name(ret));
                 }
-                printf("Received and written config\n");
 
-                // Load NVS into config_instance
-                load_nvs();
-
-                //
-                // Start of message
-                //
-                make_header(&header_instance);
-
-                // Generate message
-                pMessage = malloc(header_instance.length * sizeof(uint8_t));
-                generate_message(&header_instance, pMessage);
-                printf("Message is:\n");
-                for (int i = 0; i < header_instance.length; i++)
+                ret = esp_bt_controller_disable();
+                if (ret)
                 {
-                    printf("%02X", pMessage[i]); // Print each byte of the message in hex
-                }
-                printf("\n");
-
-                // Message ready
-                esp_err_t err = esp_ble_gatts_send_indicate(gl_profile_tab[PROFILE_A_APP_ID].gatts_if,
-                                                            gl_profile_tab[PROFILE_A_APP_ID].conn_id,
-                                                            gl_profile_tab[PROFILE_A_APP_ID].char_handle,
-                                                            header_instance.length, (uint8_t *)pMessage, false);
-
-                if (err != ESP_OK)
-                {
-                    ESP_LOGE(GATTS_TAG, "Failed to send indicate: %s", esp_err_to_name(err));
+                    ESP_LOGE(GATTS_TAG, "Failed to disable Bluetooth controller: %s", esp_err_to_name(ret));
                 }
 
-                printf("%d;%d;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%s;%s\n", config_instance.status, config_instance.ID_Protocol, config_instance.BMI270_Sampling, config_instance.BMI270_Acc_Sensibility, config_instance.BMI270_Gyro_Sensibility, config_instance.BME688_Sampling, config_instance.Discontinuous_Time, config_instance.Port_TCP, config_instance.Port_UDP, config_instance.Host_Ip_Addr, config_instance.Ssid, config_instance.Pass);
-                printf("status: %d\n", config_instance.status);
-
-                vTaskDelay(5000 / portTICK_PERIOD_MS); // Wait 5 seconds
-                // // TODO: Wait until client sends read confirmation
-                // // Wait until read process is complete
-                // // xEventGroupWaitBits(client_connected, READ_COMPLETE_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
-                // //
-
-                // Prepare for next message
-                header_instance.id = NULL;
-                header_instance.transport_layer = NULL;
-                header_instance.id_protocol = NULL;
-                header_instance.length = NULL;
-                free(pMessage);
-                stop_config = false;
-
-                // Discontinuous mode
-                if (config_instance.status == 1)
-                {
-                    esp_err_t ret = esp_bluedroid_disable();
-                    if (ret)
-                    {
-                        ESP_LOGE(GATTS_TAG, "Failed to disable Bluedroid: %s", esp_err_to_name(ret));
-                    }
-
-                    ret = esp_bt_controller_disable();
-                    if (ret)
-                    {
-                        ESP_LOGE(GATTS_TAG, "Failed to disable Bluetooth controller: %s", esp_err_to_name(ret));
-                    }
-
-                    esp_sleep_enable_timer_wakeup(5000000); // Deep sleep for 5 seconds. 1 min = 60000000
-                    esp_deep_sleep_start();
-                }
+                esp_sleep_enable_timer_wakeup(5000000); // Deep sleep for 5 seconds. 1 min = 60000000
+                esp_deep_sleep_start();
             }
         }
     }

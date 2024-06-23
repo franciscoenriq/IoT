@@ -243,10 +243,10 @@ def update_conf(conf_data: list):
 
 if __name__ == "__main__":
     # Create the tables
-    db.create_tables([Configuration, Timestamp, Log, Data_1, Data_2])
+    db.create_tables([Configuration, Log, Data_1, Data_2])
 
     # Example query to test the setup
     config = Configuration.get_or_none(Configuration.Id_device == 1)
     if config:
         print(f"Configuration for device {config.Id_device}: SSID = {config.Ssid}")
-7
+

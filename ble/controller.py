@@ -1,3 +1,13 @@
+from view import Ui_Dialog
+from PyQt5 import QtWidgets, QtCore
+import asyncio
+import struct
+import sys
+from bleak import BleakClient, BleakScanner, BleakError
+from datetime import datetime 
+from bleModelos import *
+import threading
+
 import asyncio
 import struct
 import sys
@@ -5,15 +15,25 @@ from bleak import BleakClient, BleakScanner, BleakError
 from datetime import datetime 
 from bleModelos import *
 
-ESP_MAC = "3C:61:05:65:9D:BA"
-
-# Used to convert a 16-bit UUID to 128-bit UUID
 def convert_to_128bit_uuid(short_uuid):
     base_uuid = "00000000-0000-1000-8000-00805F9B34FB"
     short_uuid_hex = "{:04X}".format(short_uuid)
     return base_uuid[:4] + short_uuid_hex + base_uuid[8:]
 
+ESP_MAC = "3C:61:05:65:9D:BA"
 CHARACTERISTIC_UUID = convert_to_128bit_uuid(0xFF01)
+# For data races
+db_lock = threading.Lock()
+
+operation_dict = {
+    "Configuración por Bluetooth": 0,
+    "Configuración vía TCP en BD": 20,
+    "Conexión TCP continua": 21,
+    "Conexión TCP discontinua": 22,
+    "Conexión UDP": 23,
+    "BLE continua": 30,
+    "BLE discontinua": 31,
+}
 
 # Notification callback function
 async def handle_notification(client, sender, value):
@@ -50,11 +70,9 @@ async def handle_notification(client, sender, value):
         ]
         #protocolo 1 
         if len(value) in [17]:
-            print(type(unpacked_data['batt']))
-            print(type(unpacked_data['timestamp']))
             datos_data = [
-                int(unpacked_data['batt']),
-                int(unpacked_data['timestamp']),
+                unpacked_data['batt'],
+                unpacked_data['timestamp'],
                 None,
                 None,
                 None,
@@ -264,7 +282,7 @@ def config_packet_example():
 
 #----------------------------------------------------------------------------------------------------------------  
 
-async def connect_and_subscribe(ESP_MAC, CHARACTERISTIC_UUID, config=None):
+async def connect_and_subscribe():
     while True:
         try:
             device = await BleakScanner.find_device_by_address(ESP_MAC, timeout=5.0)
@@ -298,13 +316,99 @@ async def connect_and_subscribe(ESP_MAC, CHARACTERISTIC_UUID, config=None):
             print("Intentando reconectar...")
             await asyncio.sleep(0.2)  # Wait before retrying
 
+class Controller:
+
+    def __init__(self, parent):
+        self.ui = Ui_Dialog()
+        self.parent = parent
+        self.connect_task = None
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+    def setSignals(self):
+        self.ui.selectEspButton.clicked.connect(self.discover_esp32_devices)
+        self.ui.configButton.clicked.connect(self.send_config)
+        self.ui.startMonitoringButton.clicked.connect(self.start_monitor)
+        self.ui.stopMonitoringButton.clicked.connect(self.stop_monitor)
+
+    def discover_esp32_devices(self):
+        """Function that starts BLE search and shows ESP32 devices found in comboBox."""
+        try:
+            devices = BleakScanner.discover()
+
+            esp32_devices = [device.name for device in devices if "ESP" in device.name]
+
+            self.ui.selectEspComboBox.clear()
+            self.ui.selectEspComboBox.addItems(esp32_devices)
+
+        except Exception as e:
+            print(f"Error discovering devices: {e}")
+
+    def send_config(self):
+        """Function that sends current configuration from user to selected esp."""
+
+        # Retrieve current configuration
+        config = self.create_config()
+        mode = operation_dict[self.ui.operationModeComboBox.currentText()]
+        print("test, mode: ", mode)
+        if mode in [0, 30, 31]:  # BLE modes
+            while True:
+                try:
+                    asyncio.run(connect_and_subscribe())
+                except Exception as e:
+                    print(f"Error connecting and subscribing: {e}")
+
+
+    def create_config(self):
+        """Function that creates config packet."""
+        # Read values from UI components
+        accSamplingTextEdit = int(self.ui.accSamplingTextEdit.toPlainText())
+        accSensitivityTextEdit = int(self.ui.accSensitivityTextEdit.toPlainText())
+        gyroSensitivityTextEdit = int(self.ui.gyroSensitivityTextEdit.toPlainText())
+        bme688SamplingTextEdit = int(self.ui.bme688SamplingTextEdit.toPlainText())
+        discontinuousTimeTextEdit = int(self.ui.discontinuousTimeTextEdit.toPlainText())
+        tcpPortTextEdit = int(self.ui.tcpPortTextEdit.toPlainText())
+        udpPortTextEdit = int(self.ui.udpPortTextEdit.toPlainText())
+        hostIpTextEdit = int(self.ui.hostIpTextEdit.toPlainText())
+        ssidTextEdit = self.ui.ssidTextEdit.toPlainText()
+        passwordTextEdit = self.ui.passwordTextEdit.toPlainText()
+        # ComboBoxes
+        operationModeComboBox = self.ui.operationModeComboBox.currentText()
+        protocolIdComboBox = int(self.ui.protocolIdComboBox.currentText())
+
+        packet = create_config_packet(
+            operation_dict[operationModeComboBox],
+            protocolIdComboBox,
+            accSamplingTextEdit,
+            accSensitivityTextEdit,
+            gyroSensitivityTextEdit,
+            bme688SamplingTextEdit,
+            discontinuousTimeTextEdit,
+            tcpPortTextEdit,
+            udpPortTextEdit,
+            hostIpTextEdit,
+            ssidTextEdit,
+            passwordTextEdit,
+        )
+        return packet
+
+    def start_monitor(self):
+        pass
+
+    def stop_monitor(self):
+        pass
+
 
 if __name__ == "__main__":
-    while True:
-        try:
-            db.connect()
-            db.create_tables([Configuration, Log, Data_1, Data_2])
-            asyncio.run(connect_and_subscribe())
-        except KeyboardInterrupt:
-            print("Programa interrumpido por el usuario.")
-            break
+    import sys
+
+    app = QtWidgets.QApplication(sys.argv)
+    Dialog = QtWidgets.QDialog()
+    cont = Controller(parent=Dialog)
+    ui = cont.ui
+    ui.setupUi(Dialog)
+    Dialog.show()
+    cont.setSignals()
+
+    sys.exit(app.exec_())
+
