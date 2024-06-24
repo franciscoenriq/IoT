@@ -4,27 +4,25 @@ from peewee import (
     IntegerField,
     CharField,
     FloatField,
-    TimestampField,
     DateTimeField,
     ForeignKeyField,
 )
 import datetime
+
 # Database configuration
 db_config = {
     "host": "localhost",
     "port": 5432,
-    "user": "iot2",
-    "password": "iot222",
-    "database": "iot_db3",
+    "user": "postgres",
+    "password": "postgres",
+    "database": "iot_db",
 }
 
 # Initialize the database connection
 db = PostgresqlDatabase(**db_config)
 
-# Connect to the database and set the schema search path
-db.connect()
-db.execute_sql("SET search_path TO ble_db;")
-db.close()
+def set_search_path():
+    db.execute_sql("SET search_path TO ble_db;")
 
 # Base model class to use the database connection
 class BaseModel(Model):
@@ -59,7 +57,6 @@ class Log(BaseModel):
         Configuration, backref="logs", on_delete="NO ACTION", on_update="NO ACTION"
     )
 
-
 class Data_1(BaseModel):
     Id_device = IntegerField(primary_key=True)
     Battery_level = IntegerField(null=True)
@@ -80,7 +77,6 @@ class Data_1(BaseModel):
         Log, backref="data_1", on_delete="NO ACTION", on_update="NO ACTION"
     )
 
-
 class Data_2(BaseModel):
     Id_device = IntegerField(primary_key=True)
     Racc_x = FloatField(null=True)
@@ -94,14 +90,14 @@ class Data_2(BaseModel):
         Log, backref="data_2", on_delete="NO ACTION", on_update="NO ACTION"
     )
 
-
 def add_data_1_to_db(datos_data: list, log_data: list):
     try:
-        # Verifica si el configuration_Id_device existe en Configuration, si no, crea uno
+        # Set the search path
+        set_search_path()
+
+        # Verify if the configuration_Id_device exists in Configuration, if not, create one
         config_exists, created = Configuration.get_or_create(Id_device=log_data[7])
         with db.atomic():
-            
-        
             Log.create(
                 Id_device=log_data[0],
                 Status_report=log_data[1],
@@ -112,7 +108,6 @@ def add_data_1_to_db(datos_data: list, log_data: list):
                 Time_server=log_data[6],
                 configuration_Id_device=log_data[7],
             )
-            print(log_data[0])
             Data_1.create(
                 Id_device=log_data[0],
                 Battery_level=int(datos_data[0]) if datos_data[0] is not None else None,
@@ -131,43 +126,45 @@ def add_data_1_to_db(datos_data: list, log_data: list):
                 Time_client=log_data[5],  
                 Log_Id_device=log_data[0],
             )
-            print("datos insertados correctamente")
+            print("Data inserted successfully")
 
     except Exception as error:
-        print("Error al agregar datos a la base de datos:", error)
-
+        print("Error adding data to the database:", error)
 
 def add_data_2_to_db(datos_data: list, log_data: list):
     try:
+        # Set the search path
+        set_search_path()
+
         with db.atomic():
             log = Log.create(
-                id_device=log_data[0],
-                status_report=log_data[1],
-                protocol_report=log_data[2],
-                battery_level=log_data[3],
-                conf_peripheral=log_data[4],
-                time_client=log_data[5],
-                time_server=log_data[6],
-                configuration_id_device=log_data[7],
+                Id_device=log_data[0],
+                Status_report=log_data[1],
+                Protocol_report=log_data[2],
+                Battery_Level=log_data[3],
+                Conf_peripheral=log_data[4],
+                Time_client=log_data[5],
+                Time_server=log_data[6],
+                configuration_Id_device=log_data[7],
             )
 
             datos = Data_2.create(
-                id_device=datos_data[0],
-                racc_x=datos_data[1],
-                racc_y=datos_data[2],
-                racc_z=datos_data[3],
-                rgyr_x=datos_data[4],
-                rgyr_y=datos_data[5],
-                rgyr_z=datos_data[6],
-                time_client=datos_data[7],
-                log_Id_device=log.id_device,
+                Id_device=datos_data[0],
+                Racc_x=datos_data[1],
+                Racc_y=datos_data[2],
+                Racc_z=datos_data[3],
+                Rgyr_x=datos_data[4],
+                Rgyr_y=datos_data[5],
+                Rgyr_z=datos_data[6],
+                Time_client=datos_data[7],
+                Log_Id_device=log.Id_device,
             )
 
     except Exception as error:
-        print("Error al agregar datos a la base de datos:", error)
-
+        print("Error adding data to the database:", error)
 
 def get_conf() -> list:
+    set_search_path()
     query = Configuration.select()
     # Must be only one row
     values = []
@@ -177,8 +174,8 @@ def get_conf() -> list:
     values = values[1::]  # Delete first element (id_device)
     return values
 
-
 def update_conf(conf_data: list):
+    set_search_path()
     query = Configuration.update(
         Id_device=conf_data[0],
         Status_conf=conf_data[1],
@@ -195,19 +192,21 @@ def update_conf(conf_data: list):
         Pass=conf_data[12],
     )
 
-
 if __name__ == "__main__":
+    db.connect()
+    set_search_path()
+
     # Create the tables
-    db.create_tables([Configuration,Log, Data_1, Data_2])
+    db.create_tables([Configuration, Log, Data_1, Data_2])
 
     # Example query to test the setup
     config = Configuration.get_or_none(Configuration.Id_device == 1)
     if config:
         print(f"Configuration for device {config.Id_device}: SSID = {config.Ssid}")
 
-    datos_data =  [0, 126305, None, None, None, None, None, None, None, None, None, None, None]
+    datos_data = [0, 126305, None, None, None, None, None, None, None, None, None, None, None]
     log_data = [15164, 1, 1, 0, 0, datetime.datetime(2024, 6, 23, 19, 17, 41, 455798), 126305, 1]
-    
 
-    add_data_1_to_db(datos_data,log_data)
+    add_data_1_to_db(datos_data, log_data)
 
+    db.close()

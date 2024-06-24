@@ -1144,7 +1144,7 @@ void generate_message(Header *header_instance, uint8_t *message)
     offset += 1;
     memcpy(message + offset, &header_instance->id_protocol, 1);
     offset += 1;
-    memcpy(message + offset, &header_instance->length, sizeof(int16_t));
+    memcpy(message + offset, &header_instance->length, 2);
     offset += 2;
 
     // Reset offset
