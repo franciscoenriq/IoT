@@ -18,7 +18,7 @@ def convert_to_128bit_uuid(short_uuid):
     short_uuid_hex = "{:04X}".format(short_uuid)
     return base_uuid[:4] + short_uuid_hex + base_uuid[8:]
 
-ESP_MAC = "C8:C9:A3:D0:7B:12"
+ESP_MAC = "3C:61:05:65:9D:BA"
 CHARACTERISTIC_UUID = convert_to_128bit_uuid(0xFF01)
 # For data races
 db_lock = threading.Lock()
@@ -159,7 +159,7 @@ async def handle_notification(client, sender, value, config):
 
 #funciones para desemaquetar la informacion que llega desde la esp
 def unpack_protocol_1(value):
-    header_format = '<H6sBBB'
+    header_format = '<H6sBBH'
     body_format = '<BIB'
 
     header_size = struct.calcsize(header_format)
@@ -175,7 +175,7 @@ def unpack_protocol_1(value):
     return {**header_dict, **body_dict}
 # Unpack function for protocol 2
 def unpack_protocol_2(value):
-    header_format = '<H6sBBB'
+    header_format = '<H6sBBH'
     body_format = '<BIBIBI'
 
     header_size = struct.calcsize(header_format)
@@ -192,7 +192,7 @@ def unpack_protocol_2(value):
     return {**header_dict, **body_dict}
 
 def unpack_protocol_3(value):
-    header_format = '<H6sBBB'
+    header_format = '<H6sBBH'
     body_format = '<BIBIBIf'
 
     header_size = struct.calcsize(header_format)
@@ -209,7 +209,7 @@ def unpack_protocol_3(value):
 
 # Unpack function for protocol 4
 def unpack_protocol_4(value):
-    header_format = '<H6sBBB'
+    header_format = '<H6sBBH'
     body_format = '<BIBIBIfffffff'
 
     header_size = struct.calcsize(header_format)
