@@ -13,9 +13,9 @@ import datetime
 db_config = {
     "host": "localhost",
     "port": 5432,
-    "user": "postgres",
-    "password": "postgres",
-    "database": "iot_db",
+    "user": "iot_usuario",
+    "password": "iot123",
+    "database": "iot_db3",
 }
 
 # Initialize the database connection
@@ -192,6 +192,13 @@ def update_conf(conf_data: list):
         Pass=conf_data[12],
     )
 
+def fetch_attribute_values(attribute):
+    set_search_path()
+    query = Data_1.select(getattr(Data_1, attribute)).execute()
+    values = [getattr(data, attribute) for data in query]
+    return values
+
+
 if __name__ == "__main__":
     db.connect()
     set_search_path()
@@ -208,5 +215,9 @@ if __name__ == "__main__":
     #log_data = [15164, 1, 1, 0, 0, datetime.datetime(2024, 6, 23, 19, 17, 41, 455798), 126305, 1]
 
     #add_data_1_to_db(datos_data, log_data)
+    attribute = 'Battery_level'
+    #attribute = 'Temperature'
+    attribute_values = fetch_attribute_values(attribute)
+    print(f"Values of '{attribute}' attribute: {attribute_values}")
 
     db.close()
