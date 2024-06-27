@@ -333,8 +333,8 @@ class Controller:
         self.worker = None
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
-        self.selected_plot = None  # To store the current selected plot
-        self.data_cache1 = None  # To cache fetched data for plots
+        self.selected_plot = None  # Variable para activar actualizacion cuando cambiamos el parametor a graficar
+        self.data_cache1 = None    # Acá se guarda la data 
         self.data_cache2 = None
         self.data_cache3 = None
         self.timer = QTimer(self.parent)  # QTimer instance for periodic updates
@@ -347,9 +347,9 @@ class Controller:
         self.ui.boton_configuracion.clicked.connect(self.send_config)
         self.ui.boton_inicio.clicked.connect(self.start_monitor)
         self.ui.boton_detener.clicked.connect(self.stop_monitor)
-        self.ui.selec_plot1.currentIndexChanged.connect(self.handle_plot_selection)  
-        self.ui.selec_plot2.currentIndexChanged.connect(self.handle_plot_selection)  
-        self.ui.selec_plot3.currentIndexChanged.connect(self.handle_plot_selection)  
+        self.ui.selec_plot1.currentIndexChanged.connect(self.update_plot_1)  
+        self.ui.selec_plot2.currentIndexChanged.connect(self.update_plot_2)  
+        self.ui.selec_plot3.currentIndexChanged.connect(self.update_plot_3)  
         self.ui.boton_graficar.clicked.connect(self.start_periodic_update) 
 
     def start_periodic_update(self):
@@ -364,40 +364,37 @@ class Controller:
         self.update_plot_3()
         print("actualizando graficos")
 
-    def handle_plot_selection(self, index):
-        # Method to handle plot selection change
-        self.selected_plot = index
-        self.update_plots()
-
-    def update_plots(self):
-        # Method to update the selected plot based on self.selected_plot
-        if self.selected_plot == 1:
-            self.update_plot_1()
-        elif self.selected_plot == 2:
-            self.update_plot_2()
-        elif self.selected_plot == 3:
-            self.update_plot_3()
 
     def update_plot_1(self):
         # Fetch data and update plot 1
         self.selected_attribute = self.ui.selec_plot1.currentText()
-        if self.data_cache1 is None:
-            self.data_cache1 = fetch_attribute_values(self.selected_attribute)  
-        # Update plot 1 using self.data_cache
+        self.data_cache1 = fetch_attribute_values(self.selected_attribute)  
+        if self.data_cache1:
+            self.update_plot_widget(self.ui.plot1, self.data_cache1)
 
     def update_plot_2(self):
-        self.selected_attribute = self.ui.selec_plot2.currentText()
-        # Fetch data and update plot 2
-        if self.data_cache2 is None:
-            self.data_cache2 = fetch_attribute_values(self.selected_attribute)  
-        # Update plot 2 using self.data_cache
 
+        self.selected_attribute = self.ui.selec_plot2.currentText()
+        self.data_cache2 = fetch_attribute_values(self.selected_attribute)  
+        if self.data_cache2:
+            self.update_plot_widget(self.ui.plot2, self.data_cache2)
     def update_plot_3(self):
+
         self.selected_attribute = self.ui.selec_plot3.currentText()
-        # Fetch data and update plot 3
-        if self.data_cache3 is None:
-            self.data_cache3 = fetch_attribute_values(self.selected_attribute)  
-        # Update plot 3 using self.data_cache
+        self.data_cache3 = fetch_attribute_values(self.selected_attribute)  
+        if self.data_cache3:
+            self.update_plot_widget(self.ui.plot3, self.data_cache3)
+
+    def update_plot_widget(self, plot_widget, data):
+
+        plot_item = plot_widget.getPlotItem()
+        # Limpiar los datos anteriores
+        plot_item.clear()
+        # Graficar los nuevos datos
+        if 'x' in data and 'y' in data and data['x'] is not None and data['y'] is not None:
+            plot_item.plot(data['x'], data['y'])
+        else:
+            print("Los datos no son válidos para graficar.")
 
 
     def discover_esp32_devices(self):

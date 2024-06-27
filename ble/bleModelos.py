@@ -191,12 +191,16 @@ def update_conf(conf_data: list):
         Ssid=conf_data[11],
         Pass=conf_data[12],
     )
-
+#funcion para hacer las consultas para los graficos 
 def fetch_attribute_values(attribute):
     set_search_path()
     query = Data_1.select(getattr(Data_1, attribute)).execute()
     values = [getattr(data, attribute) for data in query]
-    return values
+    # Generar datos x como índices de los valores y
+    x_values = list(range(len(values)))
+    data_dict = {'x': x_values, 'y': values}
+
+    return data_dict
 
 
 if __name__ == "__main__":
