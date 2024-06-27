@@ -204,9 +204,9 @@ if __name__ == "__main__":
     if config:
         print(f"Configuration for device {config.Id_device}: SSID = {config.Ssid}")
 
-    datos_data = [0, 126305, None, None, None, None, None, None, None, None, None, None, None]
-    log_data = [15164, 1, 1, 0, 0, datetime.datetime(2024, 6, 23, 19, 17, 41, 455798), 126305, 1]
+    #datos_data = [0, 126305, None, None, None, None, None, None, None, None, None, None, None]
+    #log_data = [15164, 1, 1, 0, 0, datetime.datetime(2024, 6, 23, 19, 17, 41, 455798), 126305, 1]
 
-    add_data_1_to_db(datos_data, log_data)
+    #add_data_1_to_db(datos_data, log_data)
 
     db.close()

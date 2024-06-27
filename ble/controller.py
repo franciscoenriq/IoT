@@ -6,7 +6,7 @@ import sys
 from bleak import BleakClient, BleakScanner, BleakError
 from datetime import datetime
 import threading
-from bleModelos2 import *
+from bleModelos import *
 
 def convert_to_128bit_uuid(short_uuid):
     base_uuid = "00000000-0000-1000-8000-00805F9B34FB"
@@ -321,10 +321,10 @@ class Controller:
         asyncio.set_event_loop(self.loop)
 
     def setSignals(self):
-        self.ui.selectEspButton.clicked.connect(self.discover_esp32_devices)
-        self.ui.configButton.clicked.connect(self.send_config)
-        self.ui.startMonitoringButton.clicked.connect(self.start_monitor)
-        self.ui.stopMonitoringButton.clicked.connect(self.stop_monitor)
+        self.ui.boton_configuracion_3.clicked.connect(self.discover_esp32_devices)
+        self.ui.boton_configuracion.clicked.connect(self.send_config)
+        self.ui.boton_inicio.clicked.connect(self.start_monitor)
+        self.ui.boton_detener.clicked.connect(self.stop_monitor)
 
     def discover_esp32_devices(self):
         """Function that starts BLE search and shows ESP32 devices found in comboBox."""
@@ -333,8 +333,8 @@ class Controller:
 
             esp32_devices = [device.name for device in devices if "ESP" in device.name]
 
-            self.ui.selectEspComboBox.clear()
-            self.ui.selectEspComboBox.addItems(esp32_devices)
+            self.ui.selec_esp.clear()
+            self.ui.selec_esp.addItems(esp32_devices)
 
         except Exception as e:
             print(f"Error discovering devices: {e}")
@@ -344,7 +344,7 @@ class Controller:
 
         # Retrieve current configuration
         config = self.create_config()
-        mode = operation_dict[self.ui.operationModeComboBox.currentText()]
+        mode = operation_dict[self.ui.selec_10.currentText()]
         if mode in [0, 30, 31]:  # BLE modes
             while True:
                 try:
@@ -356,19 +356,19 @@ class Controller:
     def create_config(self):
         """Function that creates config packet."""
         # Read values from UI components
-        accSamplingTextEdit = int(self.ui.accSamplingTextEdit.toPlainText())
-        accSensitivityTextEdit = int(self.ui.accSensitivityTextEdit.toPlainText())
-        gyroSensitivityTextEdit = int(self.ui.gyroSensitivityTextEdit.toPlainText())
-        bme688SamplingTextEdit = int(self.ui.bme688SamplingTextEdit.toPlainText())
-        discontinuousTimeTextEdit = int(self.ui.discontinuousTimeTextEdit.toPlainText())
-        tcpPortTextEdit = int(self.ui.tcpPortTextEdit.toPlainText())
-        udpPortTextEdit = int(self.ui.udpPortTextEdit.toPlainText())
-        hostIpTextEdit = int(self.ui.hostIpTextEdit.toPlainText())
-        ssidTextEdit = self.ui.ssidTextEdit.toPlainText()
-        passwordTextEdit = self.ui.passwordTextEdit.toPlainText()
+        accSamplingTextEdit = int(self.ui.text_acc_sampling.toPlainText())
+        accSensitivityTextEdit = int(self.ui.text_acc_sensibity.toPlainText())
+        gyroSensitivityTextEdit = int(self.ui.text_gyro_sensibility.toPlainText())
+        bme688SamplingTextEdit = int(self.ui.textEdit_18.toPlainText())
+        discontinuousTimeTextEdit = int(self.ui.text_disc_time.toPlainText())
+        tcpPortTextEdit = int(self.ui.text_tcp_port.toPlainText())
+        udpPortTextEdit = int(self.ui.text_udp_port.toPlainText())
+        hostIpTextEdit = int(self.ui.text_host_ip.toPlainText())
+        ssidTextEdit = self.ui.text_ssid.toPlainText()
+        passwordTextEdit = self.ui.text_pass.toPlainText()
         # ComboBoxes
-        operationModeComboBox = self.ui.operationModeComboBox.currentText()
-        protocolIdComboBox = int(self.ui.protocolIdComboBox.currentText())
+        operationModeComboBox = self.ui.selec_10.currentText()
+        protocolIdComboBox = int(self.ui.selec_11.currentText())
 
         packet = create_config_packet(
             operation_dict[operationModeComboBox],
@@ -405,4 +405,3 @@ if __name__ == "__main__":
     cont.setSignals()
 
     sys.exit(app.exec_())
-
