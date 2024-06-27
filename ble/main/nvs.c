@@ -52,16 +52,16 @@ int Write_NVS_int(int32_t data, int key)
             err = nvs_set_i32(my_handle, "BMI270_Sampling", data);
             break;
         case 4:
-            err = nvs_set_i32(my_handle, "BMI270_Acc_Sensibility", data);
+            err = nvs_set_i32(my_handle, "BMI270_Acc_Sens", data);
             break;
         case 5:
-            err = nvs_set_i32(my_handle, "BMI270_Gyro_Sensibility", data);
+            err = nvs_set_i32(my_handle, "BMI270_Gyr_Sens", data);
             break;
         case 6:
             err = nvs_set_i32(my_handle, "BME688_Sampling", data);
             break;
         case 7:
-            err = nvs_set_i32(my_handle, "Discontinuous_Time", data);
+            err = nvs_set_i32(my_handle, "Dis_Time", data);
             break;
         case 8:
             err = nvs_set_i32(my_handle, "Port_TCP", data);
@@ -122,16 +122,16 @@ int Read_NVS_int(int32_t *data, int key)
             err = nvs_get_i32(my_handle, "BMI270_Sampling", data);
             break;
         case 4:
-            err = nvs_get_i32(my_handle, "BMI270_Acc_Sensibility", data);
+            err = nvs_get_i32(my_handle, "BMI270_Acc_Sens", data);
             break;
         case 5:
-            err = nvs_get_i32(my_handle, "BMI270_Gyro_Sensibility", data);
+            err = nvs_get_i32(my_handle, "BMI270_Gyr_Sens", data);
             break;
         case 6:
             err = nvs_get_i32(my_handle, "BME688_Sampling", data);
             break;
         case 7:
-            err = nvs_get_i32(my_handle, "Discontinuous_Time", data);
+            err = nvs_get_i32(my_handle, "Dis_Time", data);
             break;
         case 8:
             err = nvs_get_i32(my_handle, "Port_TCP", data);

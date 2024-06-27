@@ -408,9 +408,7 @@ void example_write_event_env(esp_gatt_if_t gatts_if,
             // For some reason first write isn't from client
             if (i == 0)
             {
-                printf("i: %d\n", i);
                 i += 1;
-
                 return;
             }
             // Set groupbits for writing proccess
@@ -454,7 +452,6 @@ void example_write_event_env(esp_gatt_if_t gatts_if,
 void example_exec_write_event_env(prepare_type_env_t *prepare_write_env,
                                   esp_ble_gatts_cb_param_t *param)
 {
-    printf("Writing event from client exec\n");
     if (param->exec_write.exec_write_flag == ESP_GATT_PREP_WRITE_EXEC)
     {
         esp_log_buffer_hex(GATTS_TAG, prepare_write_env->prepare_buf,
@@ -476,7 +473,6 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                                           esp_gatt_if_t gatts_if,
                                           esp_ble_gatts_cb_param_t *param)
 {
-    printf("This is profile_a_event_handler\n");
     switch (event)
     {
     case ESP_GATTS_REG_EVT:
@@ -539,11 +535,9 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                  "GATT_READ_EVT, conn_id %d, trans_id %" PRIu32 ", handle %d",
                  param->read.conn_id, param->read.trans_id, param->read.handle);
         esp_gatt_rsp_t rsp;
-        printf("ESP_GATTS_READ_EVT\n");
         memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
         rsp.attr_value.handle = param->read.handle;
         memcpy(&rsp.attr_value.len, pMessage + 10, 2); // Set message length in len
-        printf("len read: %u\n", rsp.attr_value.len);
         memcpy(&rsp.attr_value.value, pMessage, rsp.attr_value.len); // Set message in value
         esp_ble_gatts_send_response(gatts_if, param->read.conn_id,
                                     param->read.trans_id, ESP_GATT_OK, &rsp);
@@ -554,7 +548,6 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
         ESP_LOGI(GATTS_TAG,
                  "GATT_WRITE_EVT, conn_id %d, trans_id %" PRIu32 ", handle %d",
                  param->write.conn_id, param->write.trans_id, param->write.handle);
-        printf("ESP_GATTS_WRITE_EVT\n");
         if (!param->write.is_prep)
         {
             ESP_LOGI(GATTS_TAG,
@@ -611,8 +604,6 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                 }
             }
         }
-        printf("GATT_WRITE_EVT, conn_id %d, trans_id %" PRIu32 ", handle %d, len %d\n",
-               param->write.conn_id, param->write.trans_id, param->write.handle, param->write.len);
         example_write_event_env(gatts_if, &a_prepare_write_env, param);
         break;
     }
@@ -757,7 +748,6 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event,
                                           esp_gatt_if_t gatts_if,
                                           esp_ble_gatts_cb_param_t *param)
 {
-    printf("This is proble_b_event_handler\n");
     //     switch (event)
     //     {
     //     case ESP_GATTS_REG_EVT:
@@ -1149,6 +1139,7 @@ void generate_message(Header *header_instance, uint8_t *message)
 
     // Reset offset
     offset = HEADER_SIZE;
+    printf("------------------------------------------------------------\n");
 
     // Adds protocol 1 body to message
     unsigned char batt = generateBatteryLevel();
@@ -1226,6 +1217,7 @@ void generate_message(Header *header_instance, uint8_t *message)
         offset += 4;
         printf("freqz: %f\n", freqz);
     }
+    printf("------------------------------------------------------------\n");
 }
 
 // Saves nvs from global struct config_instance
@@ -1259,9 +1251,9 @@ void load_nvs()
     Read_NVS_int(&config_instance.Port_UDP, 9);
     Read_NVS_int(&config_instance.Host_Ip_Addr, 10);
     size_t len;
-    len = strlen(config_instance.Ssid);
+    len = sizeof(config_instance.Ssid);
     Read_NVS_string(config_instance.Ssid, &len, 11);
-    len = strlen(config_instance.Pass);
+    len = sizeof(config_instance.Pass);
     Read_NVS_string(config_instance.Pass, &len, 12);
 }
 
@@ -1270,21 +1262,39 @@ void task(void *param)
     // Generate header
     Header header_instance;
     add_mac(&header_instance);
-    config_instance.status = 0; // INIT
 
     // Starts as continuous mode
     while (1)
     {
+        printf("Esperando conexión...\n");
         // Wait for ble connection
         xEventGroupWaitBits(client_connected, CLIENT_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
         ESP_LOGI("NOTIFY_TASK", "Connected to a BLE client, starting notifications.");
+        printf("Cliente conectado\n");
 
+        // Check if still connected
         while (xEventGroupGetBits(client_connected) & CLIENT_CONNECTED_BIT)
         {
-            printf("init\n");
-            // Check if still connected
-            printf("%d;%d;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%s;%s\n", config_instance.status, config_instance.ID_Protocol, config_instance.BMI270_Sampling, config_instance.BMI270_Acc_Sensibility, config_instance.BMI270_Gyro_Sensibility, config_instance.BME688_Sampling, config_instance.Discontinuous_Time, config_instance.Port_TCP, config_instance.Port_UDP, config_instance.Host_Ip_Addr, config_instance.Ssid, config_instance.Pass);
+            // Load NVS into config_instance
+            load_nvs();
 
+            printf("------------------------------------------------------------\n");
+            printf("Data inicial:\n");
+            printf("%d\n", config_instance.status);
+            printf("%d\n", config_instance.ID_Protocol);
+            printf("%ld\n", config_instance.BMI270_Sampling);
+            printf("%ld\n", config_instance.BMI270_Acc_Sensibility);
+            printf("%ld\n", config_instance.BMI270_Gyro_Sensibility);
+            printf("%ld\n", config_instance.BME688_Sampling);
+            printf("%ld\n", config_instance.Discontinuous_Time);
+            printf("%ld\n", config_instance.Port_TCP);
+            printf("%ld\n", config_instance.Port_UDP);
+            printf("%ld\n", config_instance.Host_Ip_Addr);
+            printf("%s\n", config_instance.Ssid);
+            printf("%s\n", config_instance.Pass);
+            printf("------------------------------------------------------------\n");
+
+            config_instance.status = 0; // INIT
             // STATUS == 0
             if (config_instance.status == 0)
             {
@@ -1305,6 +1315,21 @@ void task(void *param)
 
             // Load NVS into config_instance
             load_nvs();
+            printf("------------------------------------------------------------\n");
+            printf("Data recibida:\n");
+            printf("%d\n", config_instance.status);
+            printf("%d\n", config_instance.ID_Protocol);
+            printf("%ld\n", config_instance.BMI270_Sampling);
+            printf("%ld\n", config_instance.BMI270_Acc_Sensibility);
+            printf("%ld\n", config_instance.BMI270_Gyro_Sensibility);
+            printf("%ld\n", config_instance.BME688_Sampling);
+            printf("%ld\n", config_instance.Discontinuous_Time);
+            printf("%ld\n", config_instance.Port_TCP);
+            printf("%ld\n", config_instance.Port_UDP);
+            printf("%ld\n", config_instance.Host_Ip_Addr);
+            printf("%s\n", config_instance.Ssid);
+            printf("%s\n", config_instance.Pass);
+            printf("------------------------------------------------------------\n");
 
             //
             // Start of message
@@ -1331,9 +1356,6 @@ void task(void *param)
             {
                 ESP_LOGE(GATTS_TAG, "Failed to send indicate: %s", esp_err_to_name(err));
             }
-
-            printf("%d;%d;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%ld;%s;%s\n", config_instance.status, config_instance.ID_Protocol, config_instance.BMI270_Sampling, config_instance.BMI270_Acc_Sensibility, config_instance.BMI270_Gyro_Sensibility, config_instance.BME688_Sampling, config_instance.Discontinuous_Time, config_instance.Port_TCP, config_instance.Port_UDP, config_instance.Host_Ip_Addr, config_instance.Ssid, config_instance.Pass);
-            printf("status: %d\n", config_instance.status);
 
             vTaskDelay(5000 / portTICK_PERIOD_MS); // Wait 5 seconds
             // // TODO: Wait until client sends read confirmation
