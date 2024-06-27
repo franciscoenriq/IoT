@@ -1,6 +1,10 @@
 from view import Ui_Dialog
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QThread, pyqtSignal, QTimer
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+from pyqtgraph import PlotWidget
+import pyqtgraph as pg
 import asyncio
 import struct
 import sys
@@ -333,13 +337,16 @@ class Controller:
         self.worker = None
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
-        self.selected_plot = None  # Variable para activar actualizacion cuando cambiamos el parametor a graficar
-        self.data_cache1 = None    # Acá se guarda la data 
-        self.data_cache2 = None
-        self.data_cache3 = None
+        self.data_cache1 = {}    # Acá se guarda la data 
+        self.data_cache2 = {}
+        self.data_cache3 = {}
         self.timer = QTimer(self.parent)  # QTimer instance for periodic updates
         self.timer.timeout.connect(self.periodic_update)  # Connect timeout signal to method
-        self.selected_attribute = None
+        self.selected_attributes = [None,None,None]
+        self.setup_ui()
+
+    def setup_ui(self):
+        self.ui.setupUi(self.parent)
 
 
     def setSignals(self):
@@ -366,44 +373,42 @@ class Controller:
 
 
     def update_plot_1(self):
-        # Fetch data and update plot 1
-        self.selected_attribute = self.ui.selec_plot1.currentText()
-        self.data_cache1 = fetch_attribute_values(self.selected_attribute)  
+
+        self.data_cache1 = fetch_attribute_values(self.ui.selec_plot1.currentText())  
         if self.data_cache1:
-            self.update_plot_widget(self.ui.plot1, self.data_cache1)
+            self.plot_pyqtgraph(self.ui.plot1, self.data_cache1)
 
     def update_plot_2(self):
 
-        self.selected_attribute = self.ui.selec_plot2.currentText()
-        self.data_cache2 = fetch_attribute_values(self.selected_attribute)  
+        self.data_cache2 = fetch_attribute_values(self.ui.selec_plot2.currentText())  
         if self.data_cache2:
-            self.update_plot_widget(self.ui.plot2, self.data_cache2)
+            self.plot_pyqtgraph(self.ui.plot2, self.data_cache2)
+
     def update_plot_3(self):
 
-        self.selected_attribute = self.ui.selec_plot3.currentText()
-        self.data_cache3 = fetch_attribute_values(self.selected_attribute)  
+        self.data_cache3 = fetch_attribute_values(self.ui.selec_plot3.currentText())  
         if self.data_cache3:
-            self.update_plot_widget(self.ui.plot3, self.data_cache3)
+            self.plot_pyqtgraph(self.ui.plot3, self.data_cache3)
 
-    def update_plot_widget(self, plot_widget, data):
 
-        plot_item = plot_widget.getPlotItem()
-        # Limpiar los datos anteriores
-        plot_item.clear()
-        # Graficar los nuevos datos
-        if 'x' in data and 'y' in data and data['x'] is not None and data['y'] is not None:
-            plot_item.plot(data['x'], data['y'])
-        else:
-            print("Los datos no son válidos para graficar.")
+    def plot_pyqtgraph(self, plot_widget, values):
+        plot_widget.clear()
 
+        x_values = values['x']
+        y_values = values['y']
+        print(x_values)
+        print(y_values)
+        plot_item = plot_widget.addPlot()
+
+        plot_item.plot(x_values, y_values, pen='r')
+        plot_item.setLabel('bottom', 'Índices')
+        plot_item.setLabel('left', 'Valores')
 
     def discover_esp32_devices(self):
         """Function that starts BLE search and shows ESP32 devices found in comboBox."""
         try:
             devices = BleakScanner.discover()
-
             esp32_devices = [device.name for device in devices if "ESP" in device.name]
-
             self.ui.selec_esp.clear()
             self.ui.selec_esp.addItems(esp32_devices)
 

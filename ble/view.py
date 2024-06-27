@@ -300,7 +300,7 @@ class Ui_Dialog(object):
         self.selec_plot2.setItemText(2, _translate("Dialog", "Amp_y"))
         self.selec_plot2.setItemText(3, _translate("Dialog", "Freq_y"))
         self.selec_plot2.setItemText(4, _translate("Dialog", "Co"))
-        self.selec_plot2.setItemText(5, _translate("Dialog", "RMS"))
+        self.selec_plot2.setItemText(5, _translate("Dialog", "Press"))
         self.selec_plot2.setItemText(6, _translate("Dialog", "Press"))
         self.selec_plot3.setItemText(0, _translate("Dialog", "Temperature"))
         self.selec_plot3.setItemText(1, _translate("Dialog", "Hum"))

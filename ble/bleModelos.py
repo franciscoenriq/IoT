@@ -191,11 +191,14 @@ def update_conf(conf_data: list):
         Ssid=conf_data[11],
         Pass=conf_data[12],
     )
-#funcion para hacer las consultas para los graficos 
+#funcion para hacer las consultas para los graficos , cuando exiten valores none los cambia por 0. 
 def fetch_attribute_values(attribute):
     set_search_path()
     query = Data_1.select(getattr(Data_1, attribute)).execute()
     values = [getattr(data, attribute) for data in query]
+    # Reemplazar valores None por 0
+    values = [0 if value is None else value for value in values]
+
     # Generar datos x como índices de los valores y
     x_values = list(range(len(values)))
     data_dict = {'x': x_values, 'y': values}
