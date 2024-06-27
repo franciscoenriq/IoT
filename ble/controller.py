@@ -1,5 +1,6 @@
 from view import Ui_Dialog
 from PyQt5 import QtWidgets, QtCore
+from PyQt5.QtCore import QThread, pyqtSignal
 import asyncio
 import struct
 import sys
@@ -311,12 +312,25 @@ async def connect_and_subscribe(config=None):
             print("Intentando reconectar...")
             await asyncio.sleep(0.2)  # Wait before retrying
 
+class Worker(QThread):
+    finished = pyqtSignal()
+
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+
+    def run(self):
+        asyncio.run(connect_and_subscribe(self.config))
+        self.finished.emit()
+
+
 class Controller:
 
     def __init__(self, parent):
         self.ui = Ui_Dialog()
         self.parent = parent
         self.connect_task = None
+        self.worker = None
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
 
@@ -341,17 +355,19 @@ class Controller:
 
     def send_config(self):
         """Function that sends current configuration from user to selected esp."""
-
         # Retrieve current configuration
         config = self.create_config()
         mode = operation_dict[self.ui.selec_10.currentText()]
         if mode in [0, 30, 31]:  # BLE modes
-            while True:
-                try:
-                    asyncio.run(connect_and_subscribe(config))
-                except Exception as e:
-                    print(f"Error connecting and subscribing: {e}")
+            try:
+                self.worker = Worker(config)
+                self.worker.finished.connect(self.on_worker_finished)
+                self.worker.start()
+            except Exception as e:
+                print(f"Error starting worker: {e}")
 
+    def on_worker_finished(self):
+        print("Worker has finished")
 
     def create_config(self):
         """Function that creates config packet."""
