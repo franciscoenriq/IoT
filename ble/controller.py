@@ -1,6 +1,6 @@
 from view import Ui_Dialog
 from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal, QTimer
 import asyncio
 import struct
 import sys
@@ -14,7 +14,7 @@ def convert_to_128bit_uuid(short_uuid):
     short_uuid_hex = "{:04X}".format(short_uuid)
     return base_uuid[:4] + short_uuid_hex + base_uuid[8:]
 
-ESP_MAC = "3C:61:05:65:9D:BA"
+ESP_MAC = "C8:C9:A3:D0:7B:12"
 CHARACTERISTIC_UUID = convert_to_128bit_uuid(0xFF01)
 # For data races
 db_lock = threading.Lock()
@@ -136,7 +136,6 @@ async def handle_notification(client, sender, value, config):
 
         #finalmente insertamos los datos  
         add_data_1_to_db(datos_data, log_data)
-        Controller.update_plots()
 
     try:
         ascii_message = value.decode("ascii")
@@ -335,7 +334,13 @@ class Controller:
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         self.selected_plot = None  # To store the current selected plot
-        self.data_cache = None  # To cache fetched data for plots
+        self.data_cache1 = None  # To cache fetched data for plots
+        self.data_cache2 = None
+        self.data_cache3 = None
+        self.timer = QTimer(self.parent)  # QTimer instance for periodic updates
+        self.timer.timeout.connect(self.periodic_update)  # Connect timeout signal to method
+        self.selected_attribute = None
+
 
     def setSignals(self):
         self.ui.boton_configuracion_3.clicked.connect(self.discover_esp32_devices)
@@ -345,11 +350,23 @@ class Controller:
         self.ui.selec_plot1.currentIndexChanged.connect(self.handle_plot_selection)  
         self.ui.selec_plot2.currentIndexChanged.connect(self.handle_plot_selection)  
         self.ui.selec_plot3.currentIndexChanged.connect(self.handle_plot_selection)  
+        self.ui.boton_graficar.clicked.connect(self.start_periodic_update) 
+
+    def start_periodic_update(self):
+        # Method to start periodic updates every 5 seconds
+        self.timer.start(5000)  # Start timer with interval of 5000 milliseconds (5 seconds)
+
+    #esta funcion esta enlazada al QTimer , cuando se inicializa la clase- 
+    def periodic_update(self):
+        
+        self.update_plot_1()
+        self.update_plot_2()
+        self.update_plot_3()
+        print("actualizando graficos")
 
     def handle_plot_selection(self, index):
         # Method to handle plot selection change
         self.selected_plot = index
-        self.selected_attribute = self.ui.selec_plot1.currentText()
         self.update_plots()
 
     def update_plots(self):
@@ -363,20 +380,23 @@ class Controller:
 
     def update_plot_1(self):
         # Fetch data and update plot 1
-        if self.data_cache is None:
-            self.data_cache = fetch_attribute_values(self.selected_attribute)  # Replace 'attribute1' with actual attribute name
+        self.selected_attribute = self.ui.selec_plot1.currentText()
+        if self.data_cache1 is None:
+            self.data_cache1 = fetch_attribute_values(self.selected_attribute)  
         # Update plot 1 using self.data_cache
 
     def update_plot_2(self):
+        self.selected_attribute = self.ui.selec_plot2.currentText()
         # Fetch data and update plot 2
-        if self.data_cache is None:
-            self.data_cache = fetch_attribute_values(self.selected_attribute)  # Replace 'attribute2' with actual attribute name
+        if self.data_cache2 is None:
+            self.data_cache2 = fetch_attribute_values(self.selected_attribute)  
         # Update plot 2 using self.data_cache
 
     def update_plot_3(self):
+        self.selected_attribute = self.ui.selec_plot3.currentText()
         # Fetch data and update plot 3
-        if self.data_cache is None:
-            self.data_cache = fetch_attribute_values(self.selected_attribute)  # Replace 'attribute3' with actual attribute name
+        if self.data_cache3 is None:
+            self.data_cache3 = fetch_attribute_values(self.selected_attribute)  
         # Update plot 3 using self.data_cache
 
 
