@@ -13,9 +13,9 @@ import datetime
 db_config = {
     "host": "localhost",
     "port": 5432,
-    "user": "iot_usuario",
-    "password": "iot123",
-    "database": "iot_db3",
+    "user": "postgres",
+    "password": "postgres",
+    "database": "iot_db",
 }
 
 # Initialize the database connection
