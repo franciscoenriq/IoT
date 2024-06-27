@@ -1299,7 +1299,7 @@ void task(void *param)
             if (config_instance.status == 0)
             {
                 // Requests config (saves into NVS in the process)
-                while (!stop_config && xEventGroupGetBits(client_connected) & CLIENT_CONNECTED_BIT)
+                while (!stop_config && (xEventGroupGetBits(client_connected) & CLIENT_CONNECTED_BIT))
                 {
                     request_config();
                     printf("Config requested\n");
