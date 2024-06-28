@@ -6,6 +6,7 @@ from peewee import (
     FloatField,
     DateTimeField,
     ForeignKeyField,
+    AutoField,
 )
 import datetime
 
@@ -31,7 +32,7 @@ class BaseModel(Model):
 
 # Define the models
 class Configuration(BaseModel):
-    Id_device = IntegerField(primary_key=True)
+    Id_device = CharField(max_length=45, null=True)
     Status_conf = IntegerField(null=True)
     Protocol_conf = IntegerField(null=True)
     Acc_sampling = IntegerField(null=True)
@@ -46,7 +47,8 @@ class Configuration(BaseModel):
     Pass = CharField(max_length=45, null=True)
 
 class Log(BaseModel):
-    Id_device = IntegerField(primary_key=True)
+    log_id = AutoField()
+    Id_device = CharField(max_length=45, null=True)
     Status_report = IntegerField(null=True)
     Protocol_report = IntegerField(null=True)
     Battery_Level = IntegerField(null=True)
@@ -58,7 +60,8 @@ class Log(BaseModel):
     )
 
 class Data_1(BaseModel):
-    Id_device = IntegerField(primary_key=True)
+    data_1_id = AutoField()
+    Id_device = CharField(max_length=45, null=True)
     Battery_level = IntegerField(null=True)
     TimeStamp = IntegerField(null=True)
     Temperature = IntegerField(null=True)
@@ -75,10 +78,11 @@ class Data_1(BaseModel):
     Time_client = DateTimeField(null=True)
     Log_Id_device = ForeignKeyField(
         Log, backref="data_1", on_delete="NO ACTION", on_update="NO ACTION"
+
     )
 
 class Data_2(BaseModel):
-    Id_device = IntegerField(primary_key=True)
+    Id_device = CharField(max_length=45, null=True)
     Racc_x = FloatField(null=True)
     Racc_y = FloatField(null=True)
     Racc_z = FloatField(null=True)
@@ -98,7 +102,7 @@ def add_data_1_to_db(datos_data: list, log_data: list):
         # Verify if the configuration_Id_device exists in Configuration, if not, create one
         config_exists, created = Configuration.get_or_create(Id_device=log_data[7])
         with db.atomic():
-            Log.create(
+            log_entry = Log.create(
                 Id_device=log_data[0],
                 Status_report=log_data[1],
                 Protocol_report=log_data[2],
@@ -124,7 +128,7 @@ def add_data_1_to_db(datos_data: list, log_data: list):
                 Amp_z=float(datos_data[11]) if datos_data[11] is not None else None,
                 Freq_z=float(datos_data[12]) if datos_data[12] is not None else None,
                 Time_client=log_data[5],  
-                Log_Id_device=log_data[0],
+                Log_Id_device=log_entry.log_id,
             )
             print("Data inserted successfully")
 

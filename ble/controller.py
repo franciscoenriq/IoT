@@ -57,7 +57,7 @@ async def handle_notification(client, sender, value, config):
 
     if unpacked_data:
         log_data = [
-            unpacked_data['id'],
+            str(unpacked_data['mac']),
             unpacked_data['transport_layer'],
             unpacked_data['id_protocol'],
             unpacked_data['batt'],
@@ -160,7 +160,7 @@ async def handle_notification(client, sender, value, config):
 #funciones para desemaquetar la informacion que llega desde la esp
 def unpack_protocol_1(value):
     header_format = '<H6sBBH'
-    body_format = '<BIB'
+    body_format = '<BI'
 
     header_size = struct.calcsize(header_format)
     body_size = struct.calcsize(body_format)
